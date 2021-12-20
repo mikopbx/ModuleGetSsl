@@ -10,6 +10,7 @@
 namespace Modules\ModuleGetSsl\Lib;
 
 use MikoPBX\Common\Models\LanInterfaces;
+use MikoPBX\Core\System\PBX;
 use MikoPBX\Core\System\Processes;
 use MikoPBX\Core\System\Util;
 use MikoPBX\Modules\Config\ConfigClass;
@@ -146,6 +147,7 @@ class GetSslConf extends ConfigClass
     public function onAfterModuleEnable(): void
     {
         $this->onAfterPbxStarted();
+        PBX::managerReload();
     }
 
     /**
@@ -197,6 +199,7 @@ class GetSslConf extends ConfigClass
         $result->data = [
             'pid' => $pid
         ];
+        PBX::managerReload();
         $result->success = true;
         return $result;
     }
