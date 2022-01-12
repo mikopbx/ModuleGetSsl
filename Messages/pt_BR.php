@@ -10,6 +10,6 @@ return [
     'repModuleGetSsl' => 'Lets Encrypt - %repesent%',
     'mo_ModuleModuleGetSsl' => 'Lets Encrypt Get ssl',
     'BreadcrumbModuleGetSsl' => 'Lets Encrypt Get ssl',
-    'SubHeaderModuleGetSsl' => 'SSL сертификаты для HTTPS',
-    'module_template_AddNewRecord' => 'Добавить',
+    'SubHeaderModuleGetSsl' => 'Certificados SSL para HTTPS',
+    'module_template_AddNewRecord' => 'Adicionar novo',
 ];
