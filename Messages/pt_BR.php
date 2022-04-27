@@ -8,8 +8,8 @@ return [
  *
  */
     'repModuleGetSsl' => 'Lets Encrypt - %repesent%',
-    'mo_ModuleModuleGetSsl' => 'Lets Encrypt Get ssl',
-    'BreadcrumbModuleGetSsl' => 'Lets Encrypt Get ssl',
+    'mo_ModuleModuleGetSsl' => 'Lets Encrypt Get SSL',
+    'BreadcrumbModuleGetSsl' => 'Lets Encrypt Get SSL',
     'SubHeaderModuleGetSsl' => 'Certificados SSL para HTTPS',
     'module_template_AddNewRecord' => 'Adicionar novo',
 ];
