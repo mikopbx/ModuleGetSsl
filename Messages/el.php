@@ -7,9 +7,9 @@ return [
  * Written by Nikolay Beketov, 6 2018
  *
  */
-    'repModuleGetSsl' => 'Lets Encrypt - %repesent%',
-    'mo_ModuleModuleGetSsl' => 'Lets Encrypt Get ssl',
-    'BreadcrumbModuleGetSsl' => 'Lets Encrypt Get ssl',
-    'SubHeaderModuleGetSsl' => 'SSL сертификаты для HTTPS',
-    'module_template_AddNewRecord' => 'Добавить',
+    'repModuleGetSsl' => 'SSL Lets Encrypt - %repesent%',
+    'mo_ModuleModuleGetSsl' => 'Lets Encrypt Get SSL',
+    'BreadcrumbModuleGetSsl' => 'Lets Encrypt Get SSL',
+    'SubHeaderModuleGetSsl' => 'Πιστοποιητικά SSL για HTTPS',
+    'module_template_AddNewRecord' => 'Προσθήκη',
 ];
