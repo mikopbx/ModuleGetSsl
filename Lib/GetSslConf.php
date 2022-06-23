@@ -121,9 +121,13 @@ class GetSslConf extends ConfigClass
             Util::createUpdateSymlink($busyBoxPath, self::NS_LOOKUP_BIN, true);
 
         }
-
         Processes::mwExec("{$mountPath} -o remount,ro /offload 2> /dev/null");
-        file_put_contents("$confDir/getssl.cfg", $conf);
+        $extHostname = $this->getHostname();
+
+        file_put_contents("$confDir/$extHostname/getssl.cfg", $conf);
+        if(!empty($extHostname)){
+            Util::createUpdateSymlink("$confDir/getssl.cfg", "$confDir/$extHostname/getssl.cfg", true);
+        }
     }
 
     /**
@@ -162,7 +166,7 @@ class GetSslConf extends ConfigClass
         }
         $workerPath = $this->moduleDir.'/db/getssl';
         $getSslPath = self::GET_SSL_BIN;
-        $tasks[]      = "0 1 * * * {$getSslPath} -a -u -q -w '$workerPath' > /dev/null 2> /dev/null".PHP_EOL;
+        $tasks[]      = "0 1 * * * {$getSslPath} -a -U -q -w '$workerPath' > /dev/null 2> /dev/null".PHP_EOL;
     }
 
     /**
@@ -180,9 +184,8 @@ class GetSslConf extends ConfigClass
      */
     public function startGetCertSsl():PBXApiResult
     {
-        $result    = new PBXApiResult();
-        $res = LanInterfaces::findFirst("internet = '1'")->toArray();
-        $extHostname = $res['exthostname']??'';
+        $result      = new PBXApiResult();
+        $extHostname = $this->getHostname();
 
         if(empty($extHostname)){
             // Имя хост не заполнено.
@@ -228,4 +231,13 @@ class GetSslConf extends ConfigClass
         return $result;
     }
 
+    /**
+     * Возвращает имя хост.
+     * @return string
+     */
+    private function getHostname():string
+    {
+        $res = LanInterfaces::findFirst("internet = '1'")->toArray();
+        return $res['exthostname']??'';
+    }
 }
