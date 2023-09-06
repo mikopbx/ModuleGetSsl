@@ -123,7 +123,7 @@ class GetSslConf extends ConfigClass
         }
         Processes::mwExec("{$mountPath} -o remount,ro /offload 2> /dev/null");
         $extHostname = $this->getHostname();
-
+        Util::mwMkdir($confDir/$extHostname);
         file_put_contents("$confDir/$extHostname/getssl.cfg", $conf);
         if(!empty($extHostname)){
             Util::createUpdateSymlink("$confDir/getssl.cfg", "$confDir/$extHostname/getssl.cfg", true);
@@ -157,9 +157,9 @@ class GetSslConf extends ConfigClass
     /**
      * Добавление задач в crond.
      *
-     * @param $tasks
+     * @param array $tasks
      */
-    public function createCronTasks(&$tasks): void
+    public function createCronTasks(array &$tasks): void
     {
         if ( ! is_array($tasks)) {
             return;
