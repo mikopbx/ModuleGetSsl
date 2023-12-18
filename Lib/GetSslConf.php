@@ -80,9 +80,10 @@ class GetSslConf extends ConfigClass
     }
 
     /**
-     * Будет вызван после старта asterisk.
+     * Создает conf файл для адреса сайта.
+     * @return void
      */
-    public function onAfterPbxStarted(): void
+    private function createAclConf():void
     {
         $confDir = $this->moduleDir.'/db/getssl';
         $linkChallengeDir = '/usr/www/sites/.well-known';
@@ -123,11 +124,19 @@ class GetSslConf extends ConfigClass
         }
         Processes::mwExec("{$mountPath} -o remount,ro /offload 2> /dev/null");
         $extHostname = $this->getHostname();
-        Util::mwMkdir($confDir/$extHostname);
-        file_put_contents("$confDir/$extHostname/getssl.cfg", $conf);
+        Util::mwMkdir("$confDir/$extHostname");
+        file_put_contents("$confDir/getssl.cfg", $conf);
         if(!empty($extHostname)){
             Util::createUpdateSymlink("$confDir/getssl.cfg", "$confDir/$extHostname/getssl.cfg", true);
         }
+    }
+
+    /**
+     * Будет вызван после старта asterisk.
+     */
+    public function onAfterPbxStarted(): void
+    {
+        $this->createAclConf();
     }
 
     /**
@@ -184,6 +193,7 @@ class GetSslConf extends ConfigClass
      */
     public function startGetCertSsl():PBXApiResult
     {
+        $this->createAclConf();
         $result      = new PBXApiResult();
         $extHostname = $this->getHostname();
 
