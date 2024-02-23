@@ -7,9 +7,9 @@ return [
  * Written by Nikolay Beketov, 6 2018
  *
  */
-    'repModuleGetSsl' => '',
-    'mo_ModuleModuleGetSsl' => '',
-    'BreadcrumbModuleGetSsl' => '',
-    'SubHeaderModuleGetSsl' => '',
-    'module_template_AddNewRecord' => '',
+    'repModuleGetSsl' => 'มาเข้ารหัสกัน - %repesent%',
+    'mo_ModuleModuleGetSsl' => 'ให้เข้ารหัสรับ ssl',
+    'BreadcrumbModuleGetSsl' => 'ให้เข้ารหัสรับ ssl',
+    'SubHeaderModuleGetSsl' => 'ใบรับรอง SSL สำหรับ HTTPS',
+    'module_template_AddNewRecord' => 'เพิ่ม',
 ];
