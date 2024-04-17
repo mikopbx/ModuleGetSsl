@@ -93,8 +93,8 @@ class GetSslConf extends ConfigClass
         Util::mwMkdir($confDir);
         Util::mwMkdir($challengeDir);
 
-        $mountPath = Util::which('mount');
-        Processes::mwExec("{$mountPath} -o remount,rw /offload 2> /dev/null");
+        $mount = Util::which('mount');
+        Processes::mwExec("$mount -o remount,rw /offload 2> /dev/null");
         $email= $this->generalSettings['SystemNotificationsEmail']??'';
 
         $conf = 'CA="https://acme-v02.api.letsencrypt.org"'.PHP_EOL.
@@ -122,7 +122,7 @@ class GetSslConf extends ConfigClass
             Util::createUpdateSymlink($busyBoxPath, self::NS_LOOKUP_BIN, true);
 
         }
-        Processes::mwExec("{$mountPath} -o remount,ro /offload 2> /dev/null");
+        Processes::mwExec("$mount -o remount,ro /offload 2> /dev/null");
         $extHostname = $this->getHostname();
         Util::mwMkdir("$confDir/$extHostname");
         file_put_contents("$confDir/getssl.cfg", $conf);
@@ -145,11 +145,11 @@ class GetSslConf extends ConfigClass
      */
     public function onAfterModuleDisable(): void
     {
-        $mountPath  = Util::which('mount');
-        $rmPath     = Util::which('rm');
-        Processes::mwExec("{$mountPath} -o remount,rw /offload 2> /dev/null");
-        Processes::mwExec("{$rmPath} -rf /usr/share/getssl /usr/bin/getssl /usr/www/sites/.well-known");
-        Processes::mwExec("{$mountPath} -o remount,ro /offload 2> /dev/null");
+        $mount  = Util::which('mount');
+        $rm     = Util::which('rm');
+        Processes::mwExec("$mount -o remount,rw /offload 2> /dev/null");
+        Processes::mwExec("$rm -rf /usr/share/getssl /usr/bin/getssl /usr/www/sites/.well-known");
+        Processes::mwExec("$mount -o remount,ro /offload 2> /dev/null");
     }
 
     /**
