@@ -7,9 +7,9 @@ return [
  * Written by Nikolay Beketov, 6 2018
  *
  */
-    'repModuleGetSsl' => '',
-    'mo_ModuleModuleGetSsl' => '',
-    'BreadcrumbModuleGetSsl' => '',
-    'SubHeaderModuleGetSsl' => '',
-    'module_template_AddNewRecord' => '',
+    'repModuleGetSsl' => 'Titkosítsuk – %repesent%',
+    'mo_ModuleModuleGetSsl' => 'Lets Encrypt Get ssl',
+    'BreadcrumbModuleGetSsl' => 'Lets Encrypt Get ssl',
+    'SubHeaderModuleGetSsl' => 'SSL-tanúsítványok HTTPS-hez',
+    'module_template_AddNewRecord' => 'Hozzáadás',
 ];
