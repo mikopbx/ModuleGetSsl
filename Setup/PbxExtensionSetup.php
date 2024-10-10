@@ -20,9 +20,11 @@
 
 namespace Modules\ModuleGetSsl\Setup;
 
+use MikoPBX\Common\Models\LanInterfaces;
 use MikoPBX\Core\System\Processes;
 use MikoPBX\Core\System\Util;
 use MikoPBX\Modules\Setup\PbxExtensionSetupBase;
+use Modules\ModuleGetSsl\Models\ModuleGetSsl;
 
 /**
  * Class PbxExtensionSetup
@@ -50,5 +52,31 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         Processes::mwExec("$mount -o remount,ro /offload 2> /dev/null");
 
         return parent::unInstallFiles($keepSettings);
+    }
+
+    /**
+     * Creates the database structure according to models' annotations.
+     * If necessary, it fills some default settings and changes the sidebar menu item representation for this module.
+     * After installation, it registers the module on the PbxExtensionModules model.
+     * @see https://docs.mikopbx.com/mikopbx-development/module-developement/module-installer#fixfilesrights
+     *
+     * @return bool The result of the installation process.
+     */
+    public function installDB(): bool
+    {
+        $result = parent::installDB();
+
+        if ($result) {
+            $settings = ModuleGetSsl::findFirst();
+            if ($settings === null) {
+                $settings = new ModuleGetSsl();
+                $settings->autoUpdate = '1';
+                $res = LanInterfaces::findFirst("internet = '1'")->toArray();
+                $settings->domainName = $res['exthostname'] ?? '';
+            }
+            $result = $settings->save();
+        }
+
+        return $result;
     }
 }
