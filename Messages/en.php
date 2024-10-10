@@ -11,5 +11,4 @@ return [
     'mo_ModuleModuleGetSsl' => 'Lets Encrypt GetSSL',
     'BreadcrumbModuleGetSsl' => 'Lets Encrypt GetSSL',
     'SubHeaderModuleGetSsl' => 'SSL certificates for HTTPS',
-    'module_template_AddNewRecord' => 'Add new',
 ];
