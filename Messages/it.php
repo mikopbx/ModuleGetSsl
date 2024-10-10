@@ -11,4 +11,10 @@ return [
     'mo_ModuleModuleGetSsl' => 'Lets Encrypt Get ssl',
     'BreadcrumbModuleGetSsl' => 'Lets Encrypt Get ssl',
     'SubHeaderModuleGetSsl' => 'SSL сертификаты для HTTPS',
+    'module_getssl_DomainNameLabel' => 'Nome di dominio senza http e https, solo il nome',
+    'module_getssl_autoUpdateLabel' => 'Rinnova il certificato automaticamente',
+    'module_getssl_getUpdateSSLButton' => 'Ottieni/rinnova un certificato SSL',
+    'module_getssl_getUpdateStatusHeader' => 'In corso',
+    'module_getssl_getUpdateStatusText' => 'Richiesta di un certificato in Lets Encrypt',
+    'module_getssl_DomainNameEmpty' => 'Immettere il valore del dominio per generare il certificato',
 ];
