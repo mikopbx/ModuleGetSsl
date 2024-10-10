@@ -1,4 +1,5 @@
 <?php
+
 /*
  * MikoPBX - free phone system for small business
  * Copyright © 2017-2024 Alexey Portnov and Nikolay Beketov
@@ -21,64 +22,25 @@ namespace Modules\ModuleGetSsl\App\Forms;
 
 use Phalcon\Forms\Form;
 use Phalcon\Forms\Element\Text;
-use Phalcon\Forms\Element\Numeric;
-use Phalcon\Forms\Element\Password;
 use Phalcon\Forms\Element\Check;
-use Phalcon\Forms\Element\TextArea;
 use Phalcon\Forms\Element\Hidden;
-use Phalcon\Forms\Element\Select;
-
 
 class ModuleGetSslForm extends Form
 {
-
-    public function initialize($entity = null, $options = null) :void
+    public function initialize($entity = null, $options = null): void
     {
 
         // id
         $this->add(new Hidden('id', ['value' => $entity->id]));
 
-        // text_field
-        $this->add(new Text('text_field'));
+        // DomainName
+        $this->add(new Text('domainName'));
 
-        // text_area_field
-        $rows = max(round(strlen($entity->text_area_field) / 95), 2);
-        $this->add(new TextArea('text_area_field', ['rows' => $rows]));
-
-        // password_field
-        $this->add(new Password('password_field'));
-
-        // integer_field
-        $this->add(new Numeric('integer_field', [
-            'maxlength'    => 2,
-            'style'        => 'width: 80px;',
-            'defaultValue' => 3,
-        ]));
-
-
-        // checkbox_field
+        // AutoUpdate
         $checkAr = ['value' => null];
-        if ($entity->checkbox_field) {
+        if ($entity->autoUpdate) {
             $checkAr = ['checked' => 'checked', 'value' => null];
         }
-        $this->add(new Check('checkbox_field', $checkAr));
-
-        // toggle_field
-        $checkAr = ['value' => null];
-        if ($entity->toggle_field) {
-            $checkAr = ['checked' => 'checked', 'value' => null];
-        }
-        $this->add(new Check('toggle_field', $checkAr));
-
-        // dropdown_field
-        $providers = new Select('dropdown_field', $options['providers'], [
-            'using'    => [
-                'id',
-                'name',
-            ],
-            'useEmpty' => false,
-            'class'    => 'ui selection dropdown provider-select',
-        ]);
-        $this->add($providers);
+        $this->add(new Check('autoUpdate', $checkAr));
     }
 }

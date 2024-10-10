@@ -1,5 +1,6 @@
 #!/usr/bin/php
 <?php
+
 /*
  * MikoPBX - free phone system for small business
  * Copyright © 2017-2024 Alexey Portnov and Nikolay Beketov
@@ -18,55 +19,9 @@
  * If not, see <https://www.gnu.org/licenses/>.
  */
 
-use MikoPBX\Common\Models\PbxSettings;
-use MikoPBX\Common\Models\LanInterfaces;
-use Modules\ModuleGetSsl\Lib\GetSslConf;
+use Modules\ModuleGetSsl\Lib\GetSslMain;
+
 require_once('Globals.php');
 
-
-$res = LanInterfaces::findFirst("internet = '1'")->toArray();
-$extHostname = $res['exthostname']??'';
-
-$confClass = new GetSslConf();
-$dirCrt = $confClass->getModuleDir().'/db/getssl/'.$extHostname;
-if(!file_exists($dirCrt)){
-    exit(1);
-}
-
-if(!file_exists("$dirCrt/$extHostname.key") || !file_exists("$dirCrt/fullchain.crt")){
-    exit(2);
-}
-
-/**
- * Обновление ключа в общих настройках АТС.
- * @param $name
- * @param $path
- */
-function updateKey($name, $path):void
-{
-    if(!file_exists($path)){
-        return;
-    }
-    $key        = file_get_contents($path);
-    $oldPubKey  = PbxSettings::getValueByKey($name);
-
-    if($key !== $oldPubKey){
-        $filter = [
-            'key=:key:',
-            'bind'    => [
-                'key' => $name,
-            ],
-        ];
-        $dbRec = PbxSettings::findFirst($filter);
-        if(!$dbRec){
-            $dbRec = new PbxSettings();
-            $dbRec->key = $name;
-        }
-        $dbRec->value = $key;
-        $dbRec->save();
-    }
-
-}
-
-updateKey('WEBHTTPSPublicKey', "$dirCrt/fullchain.crt");
-updateKey('WEBHTTPSPrivateKey', "$dirCrt/$extHostname.key");
+$module = new GetSslMain();
+$module->run();

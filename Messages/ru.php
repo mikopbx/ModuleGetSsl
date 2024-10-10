@@ -12,6 +12,10 @@ return [
 	'mo_ModuleModuleGetSsl'   => 'Lets Encrypt Get ssl',
     'BreadcrumbModuleGetSsl'  => 'Lets Encrypt Get ssl',
     'SubHeaderModuleGetSsl'   => 'SSL сертификаты для HTTPS',
-    'module_template_AddNewRecord'        => 'Добавить',
-
+    'module_getssl_DomainNameLabel'=> 'Имя домена без http и https, только название',
+    'module_getssl_autoUpdateLabel'=> 'Обновлять сертификат автоматически',
+    'module_getssl_getUpdateSSLButton'=> 'Получить/обновить SSL сертификат',
+    'module_getssl_getUpdateStatusHeader'=>'Выполняется',
+    'module_getssl_getUpdateStatusText'=>'Запрашиваем сертификат в Lets Encrypt',
+    'module_getssl_DomainNameEmpty'=> 'Введите значение домена для генерации сертификата',
 ];

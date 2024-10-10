@@ -1,4 +1,5 @@
 <?php
+
 /*
  * MikoPBX - free phone system for small business
  * Copyright © 2017-2024 Alexey Portnov and Nikolay Beketov
@@ -18,7 +19,9 @@
  */
 
 namespace Modules\ModuleGetSsl\App\Controllers;
+
 use MikoPBX\AdminCabinet\Controllers\BaseController;
+use MikoPBX\Common\Models\LanInterfaces;
 use MikoPBX\Modules\PbxExtensionUtils;
 use Modules\ModuleGetSsl\App\Forms\ModuleGetSslForm;
 use Modules\ModuleGetSsl\Models\ModuleGetSsl;
@@ -39,8 +42,8 @@ class ModuleGetSslController extends BaseController
         parent::initialize();
     }
 
-
-    public function getCertAction():void{
+    public function getCertAction(): void
+    {
         $this->view->data = ['test'];
     }
     /**
@@ -58,6 +61,8 @@ class ModuleGetSslController extends BaseController
         $settings = ModuleGetSsl::findFirst();
         if ($settings === null) {
             $settings = new ModuleGetSsl();
+            $res = LanInterfaces::findFirst("internet = '1'")->toArray();
+            $settings->domainName = $res['exthostname'] ?? '';
         }
 
         $this->view->form = new ModuleGetSslForm($settings, []);
@@ -67,7 +72,7 @@ class ModuleGetSslController extends BaseController
     /**
      * Save settings AJAX action
      */
-    public function saveAction() :void
+    public function saveAction(): void
     {
         $data       = $this->request->getPost();
         $record = ModuleGetSsl::findFirst();
@@ -80,7 +85,6 @@ class ModuleGetSslController extends BaseController
                 case 'id':
                     break;
                 case 'checkbox_field':
-                case 'toggle_field':
                     if (array_key_exists($key, $data)) {
                         $record->$key = ($data[$key] === 'on') ? '1' : '0';
                     } else {
@@ -96,7 +100,7 @@ class ModuleGetSslController extends BaseController
             }
         }
 
-        if ($record->save() === FALSE) {
+        if ($record->save() === false) {
             $errors = $record->getMessages();
             $this->flash->error(implode('<br>', $errors));
             $this->view->success = false;
@@ -108,5 +112,4 @@ class ModuleGetSslController extends BaseController
         $this->view->success = true;
         $this->db->commit();
     }
-
 }

@@ -1,4 +1,5 @@
 <?php
+
 /*
  * MikoPBX - free phone system for small business
  * Copyright © 2017-2024 Alexey Portnov and Nikolay Beketov
@@ -19,8 +20,9 @@
 
 namespace Modules\ModuleGetSsl\Setup;
 
+use MikoPBX\Core\System\Processes;
+use MikoPBX\Core\System\Util;
 use MikoPBX\Modules\Setup\PbxExtensionSetupBase;
-
 
 /**
  * Class PbxExtensionSetup
@@ -30,66 +32,23 @@ use MikoPBX\Modules\Setup\PbxExtensionSetupBase;
  */
 class PbxExtensionSetup extends PbxExtensionSetupBase
 {
-
     /**
-     * PbxExtensionSetup constructor.
+     * Deletes the module files, folders, and symlinks.
+     * If $keepSettings is set to true, it copies the database file to the Backup folder.
+     * @see https://docs.mikopbx.com/mikopbx-development/module-developement/module-installer#uninstallfiles
      *
-     * @param string $moduleUniqueID - the unique module identifier
+     * @param bool $keepSettings If set to true, the module database is saved.
+     *
+     * @return bool The result of the deletion process.
      */
-    public function __construct(string $moduleUniqueID)
+    public function unInstallFiles(bool $keepSettings = false): bool
     {
-        parent::__construct($moduleUniqueID);
+        $mount = Util::which('mount');
+        $rm = Util::which('rm');
+        Processes::mwExec("$mount -o remount,rw /offload 2> /dev/null");
+        Processes::mwExec("$rm -rf /usr/share/getssl /usr/bin/getssl /usr/www/sites/.well-known");
+        Processes::mwExec("$mount -o remount,ro /offload 2> /dev/null");
 
+        return parent::unInstallFiles($keepSettings);
     }
-
-    /**
-     * Creates database structure according to models annotations
-     *
-     * If it necessary, it fills some default settings, and change sidebar menu item representation for this module
-     *
-     * After installation it registers module on PbxExtensionModules model
-     *
-     *
-     * @return bool result of installation
-     */
-    public function installDB(): bool
-    {
-        $result = $this->createSettingsTableByModelsAnnotations();
-
-        if ($result) {
-            $result = $this->registerNewModule();
-        }
-
-        if ($result) {
-            $result = $this->addToSidebar();
-        }
-
-        return $result;
-    }
-
-    /**
-     * Create folders on PBX system and apply rights
-     *
-     * @return bool result of installation
-     */
-    public function installFiles(): bool
-    {
-        return parent::installFiles();
-    }
-
-    /**
-     * Unregister module on PbxExtensionModules,
-     * Makes data backup if $keepSettings is true
-     *
-     * Before delete module we can do some soft delete changes, f.e. change forwarding rules i.e.
-     *
-     * @param  $keepSettings bool creates backup folder with module settings
-     *
-     * @return bool uninstall result
-     */
-    public function unInstallDB(bool $keepSettings = false): bool
-    {
-        return parent::unInstallDB($keepSettings);
-    }
-
 }
