@@ -11,5 +11,4 @@ return [
     'mo_ModuleModuleGetSsl' => 'ให้เข้ารหัสรับ ssl',
     'BreadcrumbModuleGetSsl' => 'ให้เข้ารหัสรับ ssl',
     'SubHeaderModuleGetSsl' => 'ใบรับรอง SSL สำหรับ HTTPS',
-    'module_template_AddNewRecord' => 'เพิ่ม',
 ];

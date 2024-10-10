@@ -11,5 +11,4 @@ return [
     'mo_ModuleModuleGetSsl' => '',
     'BreadcrumbModuleGetSsl' => '',
     'SubHeaderModuleGetSsl' => '',
-    'module_template_AddNewRecord' => '',
 ];

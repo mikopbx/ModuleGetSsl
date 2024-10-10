@@ -11,5 +11,4 @@ return [
     'mo_ModuleModuleGetSsl' => 'Sallii salauksen Get ssl',
     'BreadcrumbModuleGetSsl' => 'Sallii salauksen Get ssl',
     'SubHeaderModuleGetSsl' => 'SSL-varmenteet HTTPS:lle',
-    'module_template_AddNewRecord' => 'Lisätä',
 ];

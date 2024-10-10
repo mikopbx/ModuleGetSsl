@@ -11,5 +11,4 @@ return [
     'mo_ModuleModuleGetSsl' => 'Lets Encrypt Get SSL',
     'BreadcrumbModuleGetSsl' => 'Lets Encrypt Get SSL',
     'SubHeaderModuleGetSsl' => 'Πιστοποιητικά SSL για HTTPS',
-    'module_template_AddNewRecord' => 'Προσθήκη',
 ];

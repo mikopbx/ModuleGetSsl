@@ -11,5 +11,4 @@ return [
     'mo_ModuleModuleGetSsl' => 'Maak Let\'s Encrypt SSL',
     'BreadcrumbModuleGetSsl' => 'Let\'s Encrypt Get ssl',
     'SubHeaderModuleGetSsl' => 'SSL-certificaten voor HTTPS',
-    'module_template_AddNewRecord' => 'Nieuwe toevoegen',
 ];

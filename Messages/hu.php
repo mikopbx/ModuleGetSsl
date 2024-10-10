@@ -11,5 +11,4 @@ return [
     'mo_ModuleModuleGetSsl' => 'Lets Encrypt Get ssl',
     'BreadcrumbModuleGetSsl' => 'Lets Encrypt Get ssl',
     'SubHeaderModuleGetSsl' => 'SSL-tanúsítványok HTTPS-hez',
-    'module_template_AddNewRecord' => 'Hozzáadás',
 ];
