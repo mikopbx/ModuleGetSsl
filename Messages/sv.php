@@ -11,4 +11,10 @@ return [
     'mo_ModuleModuleGetSsl' => 'Lets Encrypt Get ssl',
     'BreadcrumbModuleGetSsl' => 'Lets Encrypt Get ssl',
     'SubHeaderModuleGetSsl' => 'SSL сертификаты для HTTPS',
+    'module_getssl_DomainNameLabel' => 'Domännamn utan http och https, bara namnet',
+    'module_getssl_autoUpdateLabel' => 'Förnya certifikatet automatiskt',
+    'module_getssl_getUpdateSSLButton' => 'Skaffa/förnya ett SSL-certifikat',
+    'module_getssl_getUpdateStatusHeader' => 'Pågår',
+    'module_getssl_getUpdateStatusText' => 'Begär ett certifikat i Lets Encrypt',
+    'module_getssl_DomainNameEmpty' => 'Ange domänvärdet för att generera certifikatet',
 ];
