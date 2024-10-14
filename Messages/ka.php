@@ -15,4 +15,9 @@ return [
     'module_getssl_autoUpdateLabel' => 'განაახლეთ სერტიფიკატი ავტომატურად',
     'module_getssl_getUpdateSSLButton' => 'მიიღეთ / განაახლეთ SSL სერთიფიკატი',
     'module_getssl_DomainNameEmpty' => 'შეიყვანეთ დომენის მნიშვნელობა სერტიფიკატის შესაქმნელად',
+    'module_getssl_getUpdateLogHeader' => 'სერთიფიკატის მოთხოვნის შედეგი Lets Encrypt-ში',
+    'module_getssl_ConfigStartsGenerating' => 'მიმდინარეობს კონფიგურაციის ფაილების გენერირება...',
+    'module_getssl_ConfigGenerated' => 'შეიქმნა კონფიგურაციის ფაილები...',
+    'module_getssl_GetSSLProcessing' => 'მიმდინარეობს მონაცემების მოთხოვნა Lets Encrypt-ში...',
+    'module_getssl_GetSSLProcessingTimeout' => 'შეცდომა, Lets Encrypt სერვისმა არ დააბრუნა პასუხი 2 წუთის განმავლობაში',
 ];
