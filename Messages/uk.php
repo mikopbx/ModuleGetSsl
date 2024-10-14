@@ -15,4 +15,9 @@ return [
     'module_getssl_autoUpdateLabel' => 'Оновити сертифікат автоматично',
     'module_getssl_getUpdateSSLButton' => 'Отримати/оновити SSL сертифікат',
     'module_getssl_DomainNameEmpty' => 'Введіть значення домену для створення сертифіката',
+    'module_getssl_getUpdateLogHeader' => 'Результат запиту сертифіката в Lets Encrypt',
+    'module_getssl_GetSSLProcessingTimeout' => 'Помилка, сервіс Lets Encrypt не повернув відповіді протягом 2 хвилин',
+    'module_getssl_ConfigStartsGenerating' => 'Генеруємо конфігураційні файли...',
+    'module_getssl_ConfigGenerated' => 'Конфігураційні файли створено...',
+    'module_getssl_GetSSLProcessing' => 'Виконується запит даних у Lets Encrypt...',
 ];
