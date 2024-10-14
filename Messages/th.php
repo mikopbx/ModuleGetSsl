@@ -15,4 +15,9 @@ return [
     'module_getssl_DomainNameLabel' => 'ชื่อโดเมนที่ไม่มี http และ https มีแต่ชื่อเท่านั้น',
     'module_getssl_getUpdateSSLButton' => 'รับ/ต่ออายุใบรับรอง SSL',
     'module_getssl_DomainNameEmpty' => 'ป้อนค่าโดเมนเพื่อสร้างใบรับรอง',
+    'module_getssl_getUpdateLogHeader' => 'ผลลัพธ์ของการร้องขอใบรับรองใน Lets Encrypt',
+    'module_getssl_ConfigStartsGenerating' => 'กำลังสร้างไฟล์การกำหนดค่า...',
+    'module_getssl_GetSSLProcessing' => 'กำลังขอข้อมูลใน Lets Encrypt...',
+    'module_getssl_GetSSLProcessingTimeout' => 'เกิดข้อผิดพลาด บริการ Lets Encrypt ไม่ตอบกลับภายใน 2 นาที',
+    'module_getssl_ConfigGenerated' => 'สร้างไฟล์การกำหนดค่าแล้ว...',
 ];
