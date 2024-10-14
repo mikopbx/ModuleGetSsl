@@ -38,18 +38,23 @@ class GetSslConf extends ConfigClass
         $res    = new PBXApiResult();
         $res->processor = __METHOD__;
         $action = strtoupper($request['action']);
+        if (!empty($request['asyncChannelId'])) {
+            $asyncChannelId = $request['asyncChannelId'];
+        } else {
+            $asyncChannelId = '';
+        }
         switch ($action) {
-            case 'CHECK-RESULT':
-                $moduleMain = new GetSslMain();
-                $res = $moduleMain->checkResult();
-                break;
             case 'GET-CERT':
-                $moduleMain = new GetSslMain();
+                $moduleMain = new GetSslMain($asyncChannelId);
+                $moduleMain->createAclConf();
                 $res = $moduleMain->startGetCertSsl();
+                if (!empty($asyncChannelId)) {
+                    $res = $moduleMain->checkResultAsync();
+                }
                 break;
-            case 'CHECK':
-            case 'RELOAD':
-                $res->success = true;
+            case 'CHECK-RESULT':
+                $moduleMain = new GetSslMain($asyncChannelId);
+                $res = $moduleMain->checkResult();
                 break;
             default:
                 $res->success    = false;

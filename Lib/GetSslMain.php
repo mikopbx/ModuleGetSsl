@@ -22,8 +22,8 @@
 namespace Modules\ModuleGetSsl\Lib;
 
 use MikoPBX\Common\Models\PbxSettings;
+use MikoPBX\Common\Providers\PBXCoreRESTClientProvider;
 use MikoPBX\Core\System\Directories;
-use MikoPBX\Core\System\PBX;
 use MikoPBX\Core\System\Processes;
 use MikoPBX\Core\System\Util;
 use MikoPBX\Modules\PbxExtensionUtils;
@@ -40,7 +40,12 @@ class GetSslMain extends Injectable
 {
     public const GET_SSL_BIN = '/usr/bin/getssl';
     public const NS_LOOKUP_BIN = '/usr/bin/nslookup';
+    private const STAGE_1_GENERATE_CONFIG = 'STAGE_1_GENERATE_CONFIG';
+    private const STAGE_2_REQUEST_CERT = 'STAGE_2_REQUEST_CERT';
+    private const STAGE_3_PARSE_RESPONSE = 'STAGE_3_PARSE_RESPONSE';
+    private const STAGE_4_FINAL_RESULT = 'STAGE_4_FINAL_RESULT';
 
+    // Pub/sub nchan channel id to send a response to backend
     /**
      * @var array Directories used by the module
      */
@@ -49,24 +54,26 @@ class GetSslMain extends Injectable
      * @var array Module settings
      */
     public array $module_settings = [];
+    protected string $asyncChannelId;
     /**
      * @var string Unique identifier for the module
      */
     private string $moduleUniqueID = 'ModuleGetSsl';
-
     /**
      * @var string Log file path for the module
      */
     private string $logFile;
 
     /**
-     * ZabbixAgent5Main constructor.
      * Initializes module directories, checks module status and loads settings.
      */
-    public function __construct()
+    public function __construct(string $asyncChannelId = 'module-get-ssl-pub')
     {
         // Initialize directories used by the module
         $this->dirs = $this->getModuleDirs();
+
+        // Initialize Pub/sub nchan channel id to send a response to frontend
+        $this->asyncChannelId = $asyncChannelId;
 
         // Load module settings if the module is enabled
         if (PbxExtensionUtils::isEnabled($this->moduleUniqueID)) {
@@ -125,34 +132,40 @@ class GetSslMain extends Injectable
             'challengeDir' => $challengeDir
         ];
     }
+
     /**
-     * Starts the SSL certificate generation process.
+     * Initiates the certificate request process, checks the result, and updates the browser with the final stage.
      *
-     * @return PBXApiResult The result of the certificate generation process.
+     * @return PBXApiResult Object containing the result of the certificate request process.
      */
-    public function startGetCertSsl(): PBXApiResult
+    public function checkResultAsync(): PBXApiResult
     {
-        $this->createAclConf();
         $result = new PBXApiResult();
-        $extHostname = $this->module_settings['domainName'];
-        if (empty($extHostname)) {
-            // Domain name is not provided
-            $result->messages = ['error' =>  $this->translation->_('module_getssl_DomainNameEmpty')];
-            $result->success = false;
-            return $result;
-        }
         $getSsl = Util::which('getssl');
-        $pid = Processes::getPidOfProcess("$getSsl $extHostname");
-        if ($pid === '') {
-            $confDir = $this->dirs['confDir'];
-            Processes::mwExecBg("$getSsl $extHostname -w '$confDir'", $this->logFile);
-            $pid = Processes::getPidOfProcess("$getSsl $extHostname");
+        $timeout = 120; // Maximum wait time in seconds
+        $interval = 1;  // Check an interval in seconds
+        $elapsedTime = 0; // Track the elapsed time
+
+        // Loop while the process exists or until the timeout is reached
+        while ($elapsedTime < $timeout) {
+            $pid = Processes::getPidOfProcess($getSsl);
+            if (empty($pid)) {
+                break;
+            }
+            $result = $this->checkResult();
+            // Wait for 1 second
+            sleep($interval);
+            $elapsedTime += $interval;
         }
-        $result->data = [
-            'pid' => $pid
-        ];
-        PBX::managerReload();
-        $result->success = true;
+
+        if ($elapsedTime >= $timeout) {
+            // If the process did not finish within 120 seconds, handle the timeout
+            $result->messages['error'][] = $this->translation->_('module_getssl_GetSSLProcessingTimeout');
+            $result->success = false;
+            $this->pushMessageToBrowser(self::STAGE_3_PARSE_RESPONSE, $result->getResult());
+        } else {
+            $this->pushMessageToBrowser(self::STAGE_4_FINAL_RESULT, $result->getResult());
+        }
         return $result;
     }
 
@@ -165,6 +178,18 @@ class GetSslMain extends Injectable
         if (empty($extHostname)) {
             return;
         }
+
+        $result = new PBXApiResult();
+        $result->success = true;
+        $result->data['result'] = $this->translation->_('module_getssl_ConfigStartsGenerating');
+        $this->pushMessageToBrowser(self::STAGE_1_GENERATE_CONFIG, $result->getResult());
+
+        $getSsl = Util::which('getssl');
+        $pid = Processes::getPidOfProcess("$getSsl $extHostname");
+        if (!empty($pid)) {
+            Processes::killByName("$getSsl $extHostname");
+        }
+        file_put_contents($this->logFile, '');
 
         $confDir = $this->dirs['confDir'];
         $binDir = $this->dirs['binDir'];
@@ -191,7 +216,7 @@ class GetSslMain extends Injectable
 
 
         // Add email to the configuration if available
-        $email = PbxSettings::getValueByKey(PbxSettings::SYSTEM_NOTIFICATIONS_EMAIL);
+        $email = PbxSettings::getValueByKey('SystemNotificationsEmail');
         if (!empty($email)) {
             $conf .= 'ACCOUNT_EMAIL="' . $email . '"' . PHP_EOL;
         }
@@ -207,34 +232,121 @@ class GetSslMain extends Injectable
         }
         Processes::mwExec("$mount -o remount,ro /offload 2> /dev/null");
 
-        // Create configuration for the domain and save it
+        // Create a configuration for the domain and save it
         Util::mwMkdir("$confDir/$extHostname");
         file_put_contents("$confDir/getssl.cfg", $conf);
         Util::createUpdateSymlink("$confDir/getssl.cfg", "$confDir/$extHostname/getssl.cfg", true);
+
+        $result = new PBXApiResult();
+        $result->success = true;
+        $result->data['result'] = $this->translation->_('module_getssl_ConfigGenerated');
+        $this->pushMessageToBrowser(self::STAGE_1_GENERATE_CONFIG, $result->getResult());
     }
 
     /**
-     * Retrieves the result of the SSL certificate generation process.
+     * Pushes messages to the browser
+     * @param string $stage current stage
+     * @param array $data pushing data
+     * @return void
+     */
+    private function pushMessageToBrowser(string $stage, array $data): void
+    {
+        if (empty($this->asyncChannelId)) {
+            return;
+        }
+        $message = [
+            'moduleUniqueId' => $this->moduleUniqueID,
+            'stage' => $stage,
+            'stageDetails' => $data,
+            'pid' => posix_getpid()
+        ];
+
+        $di = MikoPBXVersion::getDefaultDi();
+        $di->get(PBXCoreRESTClientProvider::SERVICE_NAME, [
+            '/pbxcore/api/nchan/pub/' . $this->asyncChannelId,
+            PBXCoreRESTClientProvider::HTTP_METHOD_POST,
+            $message,
+            ['Content-Type' => 'application/json']
+        ]);
+    }
+
+    /**
+     * Starts the SSL certificate generation process.
      *
-     * @return PBXApiResult The result of the SSL certificate generation.
+     * @return PBXApiResult The result of the certificate generation process.
+     */
+    public function startGetCertSsl(): PBXApiResult
+    {
+        $result = new PBXApiResult();
+        $extHostname = $this->module_settings['domainName'];
+        if (empty($extHostname)) {
+            // Domain name is not provided
+            $result->messages = ['error' => $this->translation->_('module_getssl_DomainNameEmpty')];
+            $result->success = false;
+            $this->pushMessageToBrowser(self::STAGE_2_REQUEST_CERT, $result->getResult());
+            return $result;
+        }
+        $getSsl = Util::which('getssl');
+        $pid = Processes::getPidOfProcess("$getSsl $extHostname");
+        if ($pid === '') {
+            $confDir = $this->dirs['confDir'];
+            Processes::mwExecBg("$getSsl $extHostname -w '$confDir'", $this->logFile);
+            $pid = Processes::getPidOfProcess("$getSsl $extHostname");
+        }
+        $result->data['result'] = $this->translation->_('module_getssl_GetSSLProcessing');
+        $result->data['pid'] = $pid;
+        $result->success = true;
+        $this->pushMessageToBrowser(self::STAGE_2_REQUEST_CERT, $result->getResult());
+        return $result;
+    }
+
+    /**
+     * Checks the result of the GetSSL process and sends updates to the front-end.
+     *
+     * @return PBXApiResult The final result of the process or timeout.
      */
     public function checkResult(): PBXApiResult
     {
         $result = new PBXApiResult();
-        $getSsl = Util::which('getssl');
-        $pid = Processes::getPidOfProcess($getSsl);
-        if ($pid === '') {
-            $data = file_get_contents($this->logFile);
-            if ($data) {
-                $data = str_replace(PHP_EOL, '<br>', $data);
-            }
-            $result->data = ['result' => $data];
-        } else {
-            $result->data = [
-                'pid' => $pid
-            ];
-        }
+        $result->success = true;
+        // Send an update to the front-end about the running process
+        $result->data['result'] = file_get_contents($this->logFile) ?? '';
+        $this->pushMessageToBrowser(self::STAGE_3_PARSE_RESPONSE, $result->getResult());
         return $result;
+    }
+
+    /**
+     * Runs the SSL certificate update process.
+     */
+    public function run(): void
+    {
+        $certPath = $this->getCertPath();
+        $privateKeyPath = $this->getPrivateKeyPath();
+        if (file_exists($privateKeyPath) && file_exists($certPath)) {
+            $this->updateKey('WEBHTTPSPublicKey', $certPath);
+            $this->updateKey('WEBHTTPSPrivateKey', $privateKeyPath);
+        }
+    }
+
+    /**
+     * Returns the path to the SSL certificate.
+     *
+     * @return string The certificate path.
+     */
+    private function getCertPath(): string
+    {
+        return $this->dirs['confDir'] . $this->module_settings['domainName'] . '/fullchain.crt';
+    }
+
+    /**
+     * Returns the path to the private SSL key.
+     *
+     * @return string The private key path.
+     */
+    private function getPrivateKeyPath(): string
+    {
+        $extHostname = $this->module_settings['domainName'];
+        return $this->dirs['confDir'] . $extHostname . "/$extHostname.key";
     }
 
     /**
@@ -258,39 +370,6 @@ class GetSslMain extends Injectable
     }
 
     /**
-     * Runs the SSL certificate update process.
-     */
-    public function run(): void
-    {
-        $certPath = $this->getCertPath();
-        $privateKeyPath = $this->getPrivateKeyPath();
-        if (file_exists($privateKeyPath) && file_exists($certPath)) {
-            $this->updateKey('WEBHTTPSPublicKey', $certPath);
-            $this->updateKey('WEBHTTPSPrivateKey', $privateKeyPath);
-        }
-    }
-    /**
-     * Returns the path to the SSL certificate.
-     *
-     * @return string The certificate path.
-     */
-    private function getCertPath(): string
-    {
-        return $this->dirs['confDir'] . $this->module_settings['domainName'] . '/fullchain.crt';
-    }
-
-    /**
-     * Returns the path to the private SSL key.
-     *
-     * @return string The private key path.
-     */
-    private function getPrivateKeyPath(): string
-    {
-        $extHostname = $this->module_settings['domainName'];
-        return $this->dirs['confDir'] . $extHostname . "/$extHostname.key";
-    }
-
-    /**
      * Generates a cron task string for automatically updating SSL certificates.
      *
      * This method checks if the `autoUpdate` setting is enabled in the module settings.
@@ -302,10 +381,14 @@ class GetSslMain extends Injectable
      */
     public function getCronTask(): string
     {
-        if ($this->module_settings['autoUpdate'] === '1') {
+        if (
+            PbxExtensionUtils::isEnabled($this->moduleUniqueID)
+            && $this->module_settings['autoUpdate'] === '1'
+            && !empty($this->module_settings['domainName'])
+        ) {
             $workerPath = $this->moduleDir . '/db/getssl';
             $getSslPath = self::GET_SSL_BIN;
-            return "0 1 * * * {$getSslPath} -a -U -q -w '$workerPath' > /dev/null 2> /dev/null" . PHP_EOL;
+            return "0 1 1,15 * * {$getSslPath} -a -U -q -w '$workerPath' > /dev/null 2> /dev/null" . PHP_EOL;
         }
         return '';
     }

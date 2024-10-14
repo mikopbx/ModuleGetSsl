@@ -1,4 +1,4 @@
-/* global globalRootUrl, globalTranslate, Form, Config */
+/* global globalRootUrl, globalTranslate, Form, Config, PbxApi */
 
 // Constants related to the form and module
 const idUrl     = 'module-get-ssl';              // API endpoint for SSL module
@@ -43,13 +43,7 @@ const ModuleGetSsl = {
 		// Initialize form with validation and submit handlers
 		this.initializeForm();
 
-		// Attach event listener for the SSL certificate request button
-		$('#get-cert').click(this.getSsl);
-
-		// Attach event listener to close messages on close button click
-		$('.message .close').on('click', function () {
-			$(this).closest('.message').transition('fade');
-		});
+		moduleGetSSLStatusLoopWorker.$resultBlock.hide();
 	},
 
 	/**
@@ -57,77 +51,33 @@ const ModuleGetSsl = {
 	 * This method sends a GET request to initiate the SSL process.
 	 */
 	getSsl() {
-		// Show the loading div and hide the result div while waiting for the server response
-		$('#div-waiting').show();
-		$('#div-result').hide();
-
 		$.api({
-			url: `${globalRootUrl}pbxcore/api/modules/${idUrl}/get-cert`,
+			url: `${Config.pbxUrl}/pbxcore/api/modules/${className}/get-cert`,
 			on: 'now',
-			method: 'GET',
+			method: 'POST',
+			beforeXHR(xhr) {
+				xhr.setRequestHeader ('X-Async-Response-Channel-Id', moduleGetSSLStatusLoopWorker.channelId);
+				xhr.setRequestHeader ('X-Processor-Timeout', '120');
+				return xhr;
+			},
 			beforeSend(settings) {
 				return settings;
 			},
-			successTest(response){
-				return response.success;
-			},
+			successTest: PbxApi.successTest,
 			/**
-			 * Handles the successful response of the 'get-available-ldap-users' API request.
+			 * Handles the successful response of the 'get-cert' API request.
 			 * @param {object} response - The response object.
 			 */
 			onSuccess: function (response) {
-				if (ModuleGetSsl.$intervalId !== undefined) {
-					clearInterval(ModuleGetSsl.$intervalId);
-				}
-				ModuleGetSsl.$intervalId = setInterval(ModuleGetSsl.checkResult, 5000);
+				moduleGetSSLStatusLoopWorker.editor.getSession().setValue('');
 			},
 			/**
 			 * Handles the failure response of the 'get-available-ldap-users' API request.
 			 * @param {object} response - The response object.
 			 */
 			onFailure: function(response) {
-				$('#div-result-text').html(result.messages.error.replace('\n', '<br>'));
-				$('#div-waiting').hide();
-				$('#div-result').show();
-			},
-		})
-	},
-
-	/**
-	 * Periodically checks the result of the SSL certificate generation.
-	 * This method calls the server to check if the process is completed.
-	 */
-	checkResult() {
-		// Send GET request to check the SSL certificate generation status
-		$.api({
-			url: `${globalRootUrl}pbxcore/api/modules/${idUrl}/check-result`,
-			on: 'now',
-			method: 'GET',
-			beforeSend(settings) {
-				return settings;
-			},
-			successTest(response){
-				return response.success;
-			},
-			/**
-			 * Handles the successful response of the 'get-available-ldap-users' API request.
-			 * @param {object} response - The response object.
-			 */
-			onSuccess: function (response) {
-				// Update the result text with the server response and stop checking
-				$('#div-result-text').html(result.data.result.replace('\n', '<br>'));
-				$('#div-waiting').hide();
-				$('#div-result').show();
-				clearInterval(ModuleGetSsl.$intervalId);
-			},
-			/**
-			 * Handles the failure response of the 'get-available-ldap-users' API request.
-			 * @param {object} response - The response object.
-			 */
-			onFailure: function(response) {
-				$('#div-result-text').html(result.messages.error.replace('\n', '<br>'));
-				$('#div-waiting').hide();
-				$('#div-result').show();
+				UserMessage.showMultiString(response.message);
+				moduleGetSSLStatusLoopWorker.$resultBlock.hide();
 			},
 		})
 	},
@@ -149,17 +99,25 @@ const ModuleGetSsl = {
 	},
 
 	/**
-	 * Callback executed before sending the form data.
-	 * It collects form data and appends it to the request payload.
-	 * @param {Object} settings - The current form settings.
-	 * @returns {Object} Modified settings with form data.
+	 * Callback before sending the form.
+	 * @param {Object} settings - Ajax request settings.
+	 * @returns {Object} The modified Ajax request settings.
 	 */
 	cbBeforeSendForm(settings) {
 		const result = settings;
-		// Get all form values and assign them to the request data
 		result.data = ModuleGetSsl.$formObj.form('get values');
 		return result;
 	},
+
+	/**
+	 * Callback function after sending the form.
+	 */
+	cbAfterSendForm(response) {
+		if (Form.checkSuccess(response)){
+			ModuleGetSsl.getSsl();
+		}
+	},
+
 
 	/**
 	 * Initializes the form validation and submission logic.
@@ -170,8 +128,9 @@ const ModuleGetSsl = {
 		Form.$formObj = ModuleGetSsl.$formObj;
 		Form.url = `${globalRootUrl}${idUrl}/${idUrl}/save`;
 		Form.validateRules = ModuleGetSsl.validateRules;
-		Form.cbBeforeSendForm = ModuleGetSsl.cbBeforeSendForm;
+		Form.enableDirrity = false;
 		Form.cbAfterSendForm = ModuleGetSsl.cbAfterSendForm;
+		Form.cbBeforeSendForm = ModuleGetSsl.cbBeforeSendForm;
 		// Initialize the form with the specified parameters
 		Form.initialize();
 	},

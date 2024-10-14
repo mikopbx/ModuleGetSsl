@@ -21,41 +21,41 @@
 namespace Modules\ModuleGetSsl\App\Controllers;
 
 use MikoPBX\AdminCabinet\Controllers\BaseController;
+use MikoPBX\AdminCabinet\Providers\AssetProvider;
 use MikoPBX\Common\Models\LanInterfaces;
-use MikoPBX\Modules\PbxExtensionUtils;
 use Modules\ModuleGetSsl\App\Forms\ModuleGetSslForm;
 use Modules\ModuleGetSsl\Models\ModuleGetSsl;
 
 class ModuleGetSslController extends BaseController
 {
     private $moduleUniqueID = 'ModuleGetSsl';
-    private $moduleDir;
 
     /**
      * Basic initial class
      */
     public function initialize(): void
     {
-        $this->moduleDir = PbxExtensionUtils::getModuleDir($this->moduleUniqueID);
-        $this->view->logoImagePath = "{$this->url->get()}assets/img/cache/{$this->moduleUniqueID}/logo.svg";
-        $this->view->submitMode = null;
+        $this->view->logoImagePath = $this->url->get() . 'assets/img/cache/' . $this->moduleUniqueID . '/logo.svg';
         parent::initialize();
     }
 
-    public function getCertAction(): void
-    {
-        $this->view->data = ['test'];
-    }
     /**
      * Index page controller
      */
     public function indexAction(): void
     {
-        $footerCollection = $this->assets->collection('footerJS');
+        $this->view->submitMode = null;
+        $footerCollection = $this->assets->collection(AssetProvider::FOOTER_JS);
         $footerCollection->addJs('js/pbx/main/form.js', true);
+        $footerCollection->addJs("js/cache/{$this->moduleUniqueID}/module-get-ssl-status-worker.js", true);
         $footerCollection->addJs("js/cache/{$this->moduleUniqueID}/module-get-ssl-index.js", true);
 
-        $headerCollectionCSS = $this->assets->collection('headerCSS');
+        $footerCollectionACE = $this->assets->collection(AssetProvider::FOOTER_ACE);
+        $footerCollectionACE
+            ->addJs('js/vendor/ace/ace.js', true)
+            ->addJs('js/vendor/ace/mode-julia.js', true);
+
+        $headerCollectionCSS = $this->assets->collection(AssetProvider::HEADER_CSS);
         $headerCollectionCSS->addCss("css/cache/{$this->moduleUniqueID}/module-get-ssl.css", true);
 
         $settings = ModuleGetSsl::findFirst();
@@ -66,7 +66,6 @@ class ModuleGetSslController extends BaseController
         }
 
         $this->view->form = new ModuleGetSslForm($settings, []);
-        $this->view->pick("{$this->moduleDir}/App/Views/index");
     }
 
     /**
@@ -74,29 +73,24 @@ class ModuleGetSslController extends BaseController
      */
     public function saveAction(): void
     {
-        $data       = $this->request->getPost();
+        if (!$this->request->isPost()) {
+            return;
+        }
         $record = ModuleGetSsl::findFirst();
         if ($record === null) {
             $record = new ModuleGetSsl();
         }
         $this->db->begin();
         foreach ($record as $key => $value) {
+            $newVal = $this->request->getPost($key, ['string','trim']) ?? '';
             switch ($key) {
                 case 'id':
                     break;
-                case 'checkbox_field':
-                    if (array_key_exists($key, $data)) {
-                        $record->$key = ($data[$key] === 'on') ? '1' : '0';
-                    } else {
-                        $record->$key = '0';
-                    }
+                case 'autoUpdate':
+                    $record->$key = ($newVal === 'on') ? '1' : '0';
                     break;
                 default:
-                    if (array_key_exists($key, $data)) {
-                        $record->$key = $data[$key];
-                    } else {
-                        $record->$key = '';
-                    }
+                    $record->$key = $newVal;
             }
         }
 

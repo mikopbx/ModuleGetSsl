@@ -38,8 +38,8 @@ class ModuleGetSslForm extends Form
 
         // AutoUpdate
         $checkAr = ['value' => null];
-        if ($entity->autoUpdate) {
-            $checkAr = ['checked' => 'checked', 'value' => null];
+        if (intval($entity->autoUpdate) === 1) {
+            $checkAr = ['checked' => '1'];
         }
         $this->add(new Check('autoUpdate', $checkAr));
     }
