@@ -15,4 +15,9 @@ return [
     'module_getssl_autoUpdateLabel' => 'Förnya certifikatet automatiskt',
     'module_getssl_getUpdateSSLButton' => 'Skaffa/förnya ett SSL-certifikat',
     'module_getssl_DomainNameEmpty' => 'Ange domänvärdet för att generera certifikatet',
+    'module_getssl_getUpdateLogHeader' => 'Resultat av certifikatbegäran i Lets Encrypt',
+    'module_getssl_ConfigStartsGenerating' => 'Genererar konfigurationsfiler...',
+    'module_getssl_ConfigGenerated' => 'Konfigurationsfiler skapade...',
+    'module_getssl_GetSSLProcessing' => 'Begär data i Lets Encrypt...',
+    'module_getssl_GetSSLProcessingTimeout' => 'Fel, tjänsten Lets Encrypt returnerade inget svar inom 2 minuter',
 ];
