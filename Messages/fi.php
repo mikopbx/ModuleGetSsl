@@ -11,4 +11,10 @@ return [
     'mo_ModuleModuleGetSsl' => 'Sallii salauksen Get ssl',
     'BreadcrumbModuleGetSsl' => 'Sallii salauksen Get ssl',
     'SubHeaderModuleGetSsl' => 'SSL-varmenteet HTTPS:lle',
+    'module_getssl_DomainNameLabel' => 'Verkkotunnuksen nimi ilman http ja https, vain nimi',
+    'module_getssl_autoUpdateLabel' => 'Uusi varmenne automaattisesti',
+    'module_getssl_getUpdateSSLButton' => 'Hanki/uusi SSL-varmenne',
+    'module_getssl_getUpdateStatusHeader' => 'Käynnissä',
+    'module_getssl_getUpdateStatusText' => 'Varmenteen pyytäminen Lets Encryptissä',
+    'module_getssl_DomainNameEmpty' => 'Syötä verkkotunnuksen arvo luodaksesi varmenteen',
 ];

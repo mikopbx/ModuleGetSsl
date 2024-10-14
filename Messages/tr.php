@@ -11,4 +11,10 @@ return [
     'mo_ModuleModuleGetSsl' => 'Lets Encrypt Get ssl',
     'BreadcrumbModuleGetSsl' => 'Lets Encrypt Get ssl',
     'SubHeaderModuleGetSsl' => 'SSL сертификаты для HTTPS',
+    'module_getssl_DomainNameLabel' => 'http ve https içermeyen alan adı, yalnızca ad',
+    'module_getssl_autoUpdateLabel' => 'Sertifikayı otomatik olarak yenile',
+    'module_getssl_getUpdateSSLButton' => 'SSL sertifikası alma/yenileme',
+    'module_getssl_getUpdateStatusHeader' => 'Devam etmekte',
+    'module_getssl_getUpdateStatusText' => 'Lets Encrypt\'te sertifika isteme',
+    'module_getssl_DomainNameEmpty' => 'Sertifikayı oluşturmak için etki alanı değerini girin',
 ];

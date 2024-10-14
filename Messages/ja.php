@@ -11,4 +11,10 @@ return [
     'mo_ModuleModuleGetSsl' => 'Lets Encrypt Get ssl',
     'BreadcrumbModuleGetSsl' => 'Lets Encrypt Get ssl',
     'SubHeaderModuleGetSsl' => 'SSL сертификаты для HTTPS',
+    'module_getssl_DomainNameLabel' => 'http と https を含まない、名前のみのドメイン名',
+    'module_getssl_autoUpdateLabel' => '証明書を自動的に更新する',
+    'module_getssl_getUpdateSSLButton' => 'SSL証明書を取得/更新する',
+    'module_getssl_getUpdateStatusHeader' => '進行中',
+    'module_getssl_getUpdateStatusText' => 'Lets Encrypt で証明書をリクエストする',
+    'module_getssl_DomainNameEmpty' => 'ドメイン値を入力して証明書を生成します',
 ];
