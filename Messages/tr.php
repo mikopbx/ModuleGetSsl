@@ -15,4 +15,9 @@ return [
     'module_getssl_autoUpdateLabel' => 'Sertifikayı otomatik olarak yenile',
     'module_getssl_getUpdateSSLButton' => 'SSL sertifikası alma/yenileme',
     'module_getssl_DomainNameEmpty' => 'Sertifikayı oluşturmak için etki alanı değerini girin',
+    'module_getssl_ConfigGenerated' => 'Yapılandırma dosyaları oluşturuldu...',
+    'module_getssl_GetSSLProcessing' => 'Lets Encrypt\'te veri isteniyor...',
+    'module_getssl_GetSSLProcessingTimeout' => 'Hata, Lets Encrypt hizmeti 2 dakika içinde yanıt vermedi',
+    'module_getssl_getUpdateLogHeader' => 'Lets Encrypt\'teki sertifika isteğinin sonucu',
+    'module_getssl_ConfigStartsGenerating' => 'Yapılandırma dosyaları oluşturuluyor...',
 ];
