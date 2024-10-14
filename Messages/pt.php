@@ -15,4 +15,9 @@ return [
     'module_getssl_autoUpdateLabel' => 'Renovar certificado automaticamente',
     'module_getssl_getUpdateSSLButton' => 'Obter/renovar certificado SSL',
     'module_getssl_DomainNameEmpty' => 'Insira o valor do domínio para gerar o certificado',
+    'module_getssl_getUpdateLogHeader' => 'Resultado da solicitação de certificado em Lets Encrypt',
+    'module_getssl_GetSSLProcessingTimeout' => 'Erro, o serviço Lets Encrypt não retornou uma resposta em 2 minutos',
+    'module_getssl_ConfigStartsGenerating' => 'Gerando arquivos de configuração...',
+    'module_getssl_ConfigGenerated' => 'Arquivos de configuração criados...',
+    'module_getssl_GetSSLProcessing' => 'Solicitando dados no Lets Encrypt...',
 ];
