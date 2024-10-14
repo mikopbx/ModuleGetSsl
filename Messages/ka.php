@@ -14,7 +14,5 @@ return [
     'module_getssl_DomainNameLabel' => 'დომენის სახელი http და https გარეშე, მხოლოდ სახელი',
     'module_getssl_autoUpdateLabel' => 'განაახლეთ სერტიფიკატი ავტომატურად',
     'module_getssl_getUpdateSSLButton' => 'მიიღეთ / განაახლეთ SSL სერთიფიკატი',
-    'module_getssl_getUpdateStatusHeader' => 'მიმდინარეობს',
-    'module_getssl_getUpdateStatusText' => 'სერთიფიკატის მოთხოვნა Lets Encrypt-ში',
     'module_getssl_DomainNameEmpty' => 'შეიყვანეთ დომენის მნიშვნელობა სერტიფიკატის შესაქმნელად',
 ];

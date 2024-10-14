@@ -14,7 +14,5 @@ return [
     'module_getssl_DomainNameLabel' => 'Domænenavn uden http og https, kun navnet',
     'module_getssl_autoUpdateLabel' => 'Forny certifikat automatisk',
     'module_getssl_getUpdateSSLButton' => 'Få/forny et SSL-certifikat',
-    'module_getssl_getUpdateStatusHeader' => 'I gang',
-    'module_getssl_getUpdateStatusText' => 'Anmodning om et certifikat i Lets Encrypt',
     'module_getssl_DomainNameEmpty' => 'Indtast domæneværdien for at generere certifikatet',
 ];

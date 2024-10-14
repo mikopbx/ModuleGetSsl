@@ -14,7 +14,5 @@ return [
     'module_getssl_autoUpdateLabel' => 'Renouveler automatiquement le certificat',
     'module_getssl_DomainNameLabel' => 'Nom de domaine sans http et https, uniquement le nom',
     'module_getssl_getUpdateSSLButton' => 'Obtenir/renouveller un certificat SSL',
-    'module_getssl_getUpdateStatusHeader' => 'En cours',
-    'module_getssl_getUpdateStatusText' => 'Demander un certificat dans Lets Encrypt',
     'module_getssl_DomainNameEmpty' => 'Entrez la valeur du domaine pour générer le certificat',
 ];

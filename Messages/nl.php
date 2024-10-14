@@ -14,7 +14,5 @@ return [
     'module_getssl_DomainNameLabel' => 'Domeinnaam zonder http en https, alleen de naam',
     'module_getssl_autoUpdateLabel' => 'Certificaat automatisch vernieuwen',
     'module_getssl_getUpdateSSLButton' => 'Een SSL-certificaat verkrijgen/verlengen',
-    'module_getssl_getUpdateStatusHeader' => 'In uitvoering',
-    'module_getssl_getUpdateStatusText' => 'Een certificaat aanvragen in Lets Encrypt',
     'module_getssl_DomainNameEmpty' => 'Voer de domeinwaarde in om het certificaat te genereren',
 ];

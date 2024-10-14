@@ -14,7 +14,5 @@ return [
     'module_getssl_DomainNameLabel' => '域名没有http和https，只有名称',
     'module_getssl_autoUpdateLabel' => '自动更新证书',
     'module_getssl_getUpdateSSLButton' => '获取/续订 SSL 证书',
-    'module_getssl_getUpdateStatusHeader' => '进行中',
-    'module_getssl_getUpdateStatusText' => '在 Lets Encrypt 中请求证书',
     'module_getssl_DomainNameEmpty' => '输入域名值生成证书',
 ];

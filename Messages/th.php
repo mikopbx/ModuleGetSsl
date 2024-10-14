@@ -12,8 +12,6 @@ return [
     'BreadcrumbModuleGetSsl' => 'ให้เข้ารหัสรับ ssl',
     'SubHeaderModuleGetSsl' => 'ใบรับรอง SSL สำหรับ HTTPS',
     'module_getssl_autoUpdateLabel' => 'ต่ออายุใบรับรองโดยอัตโนมัติ',
-    'module_getssl_getUpdateStatusHeader' => 'อยู่ระหว่างดำเนินการ',
-    'module_getssl_getUpdateStatusText' => 'การขอใบรับรองใน Lets Encrypt',
     'module_getssl_DomainNameLabel' => 'ชื่อโดเมนที่ไม่มี http และ https มีแต่ชื่อเท่านั้น',
     'module_getssl_getUpdateSSLButton' => 'รับ/ต่ออายุใบรับรอง SSL',
     'module_getssl_DomainNameEmpty' => 'ป้อนค่าโดเมนเพื่อสร้างใบรับรอง',

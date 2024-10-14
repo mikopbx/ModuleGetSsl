@@ -15,6 +15,4 @@ return [
     'module_getssl_autoUpdateLabel' => 'Odnów certyfikat automatycznie',
     'module_getssl_DomainNameEmpty' => 'Wprowadź wartość domeny, aby wygenerować certyfikat',
     'module_getssl_getUpdateSSLButton' => 'Zdobądź/odnów certyfikat SSL',
-    'module_getssl_getUpdateStatusHeader' => 'W toku',
-    'module_getssl_getUpdateStatusText' => 'Żądanie certyfikatu w Lets Encrypt',
 ];

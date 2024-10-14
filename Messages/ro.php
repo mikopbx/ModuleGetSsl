@@ -13,8 +13,6 @@ return [
     'SubHeaderModuleGetSsl' => 'SSL сертификаты для HTTPS',
     'module_getssl_DomainNameLabel' => 'Nume de domeniu fără http și https, doar numele',
     'module_getssl_autoUpdateLabel' => 'Reînnoiește automat certificatul',
-    'module_getssl_getUpdateStatusText' => 'Solicitarea unui certificat în Lets Encrypt',
     'module_getssl_DomainNameEmpty' => 'Introduceți valoarea domeniului pentru a genera certificatul',
     'module_getssl_getUpdateSSLButton' => 'Obțineți/reînnoiți un certificat SSL',
-    'module_getssl_getUpdateStatusHeader' => 'În curs',
 ];

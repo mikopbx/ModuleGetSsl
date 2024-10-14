@@ -15,6 +15,4 @@ return [
     'module_getssl_DomainNameLabel' => 'Nombre de dominio sin http y https, solo el nombre',
     'module_getssl_autoUpdateLabel' => 'Renovar certificado automáticamente',
     'module_getssl_getUpdateSSLButton' => 'Obtener/renovar un certificado SSL',
-    'module_getssl_getUpdateStatusHeader' => 'En curso',
-    'module_getssl_getUpdateStatusText' => 'Solicitar un certificado en Lets Encrypt',
 ];

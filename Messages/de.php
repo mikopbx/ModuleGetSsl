@@ -13,8 +13,6 @@ return [
     'SubHeaderModuleGetSsl' => 'SSL сертификаты для HTTPS',
     'module_getssl_DomainNameLabel' => 'Domainname ohne http und https, nur der Name',
     'module_getssl_autoUpdateLabel' => 'Zertifikat automatisch erneuern',
-    'module_getssl_getUpdateStatusHeader' => 'Im Gange',
     'module_getssl_DomainNameEmpty' => 'Geben Sie den Domänenwert ein, um das Zertifikat zu generieren',
     'module_getssl_getUpdateSSLButton' => 'Holen Sie sich ein SSL-Zertifikat oder erneuern Sie es',
-    'module_getssl_getUpdateStatusText' => 'Anfordern eines Zertifikats in Lets Encrypt',
 ];

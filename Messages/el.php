@@ -12,9 +12,7 @@ return [
     'BreadcrumbModuleGetSsl' => 'Lets Encrypt Get SSL',
     'SubHeaderModuleGetSsl' => 'Πιστοποιητικά SSL για HTTPS',
     'module_getssl_getUpdateSSLButton' => 'Λήψη/ανανεώστε ένα πιστοποιητικό SSL',
-    'module_getssl_getUpdateStatusHeader' => 'Σε εξέλιξη',
     'module_getssl_DomainNameLabel' => 'Όνομα τομέα χωρίς http και https, μόνο το όνομα',
     'module_getssl_autoUpdateLabel' => 'Αυτόματη ανανέωση του πιστοποιητικού',
-    'module_getssl_getUpdateStatusText' => 'Αίτημα πιστοποιητικού στο Lets Encrypt',
     'module_getssl_DomainNameEmpty' => 'Εισαγάγετε την τιμή τομέα για τη δημιουργία του πιστοποιητικού',
 ];
