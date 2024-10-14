@@ -15,4 +15,9 @@ return [
     'module_getssl_autoUpdateLabel' => 'Tanúsítvány automatikus megújítása',
     'module_getssl_DomainNameEmpty' => 'Adja meg a tartomány értékét a tanúsítvány létrehozásához',
     'module_getssl_getUpdateSSLButton' => 'SSL-tanúsítvány beszerzése/újítása',
+    'module_getssl_GetSSLProcessing' => 'Adatkérés a Lets Encrypt alkalmazásban...',
+    'module_getssl_getUpdateLogHeader' => 'A Lets Encrypt tanúsítványkérés eredménye',
+    'module_getssl_ConfigStartsGenerating' => 'Konfigurációs fájlok generálása...',
+    'module_getssl_ConfigGenerated' => 'Konfigurációs fájlok létrehozva...',
+    'module_getssl_GetSSLProcessingTimeout' => 'Hiba, a Lets Encrypt szolgáltatás nem adott választ 2 percen belül',
 ];
