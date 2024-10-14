@@ -15,4 +15,9 @@ return [
     'module_getssl_autoUpdateLabel' => 'Automaticky obnovit certifikát',
     'module_getssl_getUpdateSSLButton' => 'Získejte/obnovte SSL certifikát',
     'module_getssl_DomainNameEmpty' => 'Zadejte hodnotu domény pro vygenerování certifikátu',
+    'module_getssl_GetSSLProcessingTimeout' => 'Chyba, služba Lets Encrypt nevrátila odpověď do 2 minut',
+    'module_getssl_getUpdateLogHeader' => 'Výsledek žádosti o certifikát v Lets Encrypt',
+    'module_getssl_ConfigStartsGenerating' => 'Generování konfiguračních souborů...',
+    'module_getssl_ConfigGenerated' => 'Konfigurační soubory vytvořeny...',
+    'module_getssl_GetSSLProcessing' => 'Požadavek na data v Lets Encrypt...',
 ];
