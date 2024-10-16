@@ -37,10 +37,24 @@ class ModuleGetSslForm extends Form
         $this->add(new Text('domainName'));
 
         // AutoUpdate
+        $this->addCheckBox('autoUpdate', intval($entity->autoUpdate) === 1);
+    }
+
+    /**
+     * Adds a checkbox to the form field with the given name.
+     * Can be deleted if the module depends on MikoPBX later than 2024.3.0
+     *
+     * @param string $fieldName The name of the form field.
+     * @param bool $checked Indicates whether the checkbox is checked by default.
+     * @param string $checkedValue The value assigned to the checkbox when it is checked.
+     * @return void
+     */
+    public function addCheckBox(string $fieldName, bool $checked, string $checkedValue = 'on'): void
+    {
         $checkAr = ['value' => null];
-        if (intval($entity->autoUpdate) === 1) {
-            $checkAr = ['checked' => '1'];
+        if ($checked) {
+            $checkAr = ['checked' => $checkedValue,'value' => $checkedValue];
         }
-        $this->add(new Check('autoUpdate', $checkAr));
+        $this->add(new Check($fieldName, $checkAr));
     }
 }
