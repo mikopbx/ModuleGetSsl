@@ -45,12 +45,11 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
      */
     public function unInstallFiles(bool $keepSettings = false): bool
     {
-        $mount = Util::which('mount');
         $rm = Util::which('rm');
-        Processes::mwExec("$mount -o remount,rw /offload 2> /dev/null");
+        $busyBoxPath = Util::which('busybox');
+        Processes::mwExec("$busyBoxPath mount -o remount,rw /offload 2> /dev/null");
         Processes::mwExec("$rm -rf /usr/share/getssl /usr/bin/getssl /usr/www/sites/.well-known");
-        Processes::mwExec("$mount -o remount,ro /offload 2> /dev/null");
-
+        Processes::mwExec("$busyBoxPath mount -o remount,ro /offload 2> /dev/null");
         return parent::unInstallFiles($keepSettings);
     }
 

@@ -197,8 +197,8 @@ class GetSslMain extends Injectable
         $wellKnownDir = $this->dirs['wellKnownDir'];
 
         // Remount /offload as read-write
-        $mount = Util::which('mount');
-        Processes::mwExec("$mount -o remount,rw /offload 2> /dev/null");
+        $busyBoxPath = Util::which('busybox');
+        Processes::mwExec("$busyBoxPath mount -o remount,rw /offload 2> /dev/null");
 
         // Prepare the configuration file content
         $conf = 'CA="https://acme-v02.api.letsencrypt.org"' . PHP_EOL .
@@ -230,7 +230,7 @@ class GetSslMain extends Injectable
             $busyBoxPath = Util::which('busybox');
             Util::createUpdateSymlink($busyBoxPath, self::NS_LOOKUP_BIN, true);
         }
-        Processes::mwExec("$mount -o remount,ro /offload 2> /dev/null");
+        Processes::mwExec("$busyBoxPath mount -o remount,ro /offload 2> /dev/null");
 
         // Create a configuration for the domain and save it
         Util::mwMkdir("$confDir/$extHostname");
