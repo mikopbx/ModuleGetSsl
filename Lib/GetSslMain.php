@@ -21,6 +21,7 @@
 
 namespace Modules\ModuleGetSsl\Lib;
 
+use MikoPBX\Common\Models\LanInterfaces;
 use MikoPBX\Common\Models\PbxSettings;
 use MikoPBX\Common\Providers\PBXCoreRESTClientProvider;
 use MikoPBX\Core\System\Directories;
@@ -81,6 +82,12 @@ class GetSslMain extends Injectable
             $module_settings = ModuleGetSsl::findFirst();
             if ($module_settings !== null) {
                 $this->module_settings = $module_settings->toArray();
+            }else{
+                $this->module_settings = (new ModuleGetSsl())->toArray();
+            }
+            if(empty($this->module_settings['domainName'])){
+                $res = LanInterfaces::findFirst("internet = '1'")->toArray();
+                $this->module_settings['domainName'] = $res['exthostname'] ?? '';
             }
         }
 
@@ -125,6 +132,7 @@ class GetSslMain extends Injectable
 
         return [
             'logDir' => $logDir,
+            'getSslPath' => $moduleDir.'/bin/getssl',
             'binDir' => $binDir,
             'moduleDir' => $moduleDir,
             'confDir' => $confDir,
@@ -141,7 +149,7 @@ class GetSslMain extends Injectable
     public function checkResultAsync(): PBXApiResult
     {
         $result = new PBXApiResult();
-        $getSsl = Util::which('getssl');
+        $getSsl = $this->dirs['getSslPath'];
         $timeout = 120; // Maximum wait time in seconds
         $interval = 1;  // Check an interval in seconds
         $elapsedTime = 0; // Track the elapsed time
@@ -184,7 +192,7 @@ class GetSslMain extends Injectable
         $result->data['result'] = $this->translation->_('module_getssl_ConfigStartsGenerating');
         $this->pushMessageToBrowser(self::STAGE_1_GENERATE_CONFIG, $result->getResult());
 
-        $getSsl = Util::which('getssl');
+        $getSsl = $this->dirs['getSslPath'];
         $pid = Processes::getPidOfProcess("$getSsl $extHostname");
         if (!empty($pid)) {
             Processes::killByName("$getSsl $extHostname");
@@ -275,7 +283,7 @@ class GetSslMain extends Injectable
      *
      * @return PBXApiResult The result of the certificate generation process.
      */
-    public function startGetCertSsl(): PBXApiResult
+    public function startGetCertSsl(bool $asynchronously = true): PBXApiResult
     {
         $result = new PBXApiResult();
         $extHostname = $this->module_settings['domainName'];
@@ -286,12 +294,18 @@ class GetSslMain extends Injectable
             $this->pushMessageToBrowser(self::STAGE_2_REQUEST_CERT, $result->getResult());
             return $result;
         }
-        $getSsl = Util::which('getssl');
+        $getSsl = $this->dirs['getSslPath'];
         $pid = Processes::getPidOfProcess("$getSsl $extHostname");
         if ($pid === '') {
             $confDir = $this->dirs['confDir'];
-            Processes::mwExecBg("$getSsl $extHostname -w '$confDir'", $this->logFile);
-            $pid = Processes::getPidOfProcess("$getSsl $extHostname");
+            if($asynchronously){
+                Processes::mwExecBg("$getSsl $extHostname -w '$confDir'", $this->logFile);
+                $pid = Processes::getPidOfProcess("$getSsl $extHostname");
+            }else{
+                echo('starting'.PHP_EOL);
+                passthru("cat '$confDir/getssl.cfg' ");
+                passthru("$getSsl $extHostname -w '$confDir'", $this->logFile);
+            }
         }
         $result->data['result'] = $this->translation->_('module_getssl_GetSSLProcessing');
         $result->data['pid'] = $pid;
@@ -335,7 +349,7 @@ class GetSslMain extends Injectable
      */
     private function getCertPath(): string
     {
-        return $this->dirs['confDir'] . $this->module_settings['domainName'] . '/fullchain.crt';
+        return $this->dirs['confDir'] .'/'. $this->module_settings['domainName'] . '/fullchain.crt';
     }
 
     /**
@@ -346,7 +360,7 @@ class GetSslMain extends Injectable
     private function getPrivateKeyPath(): string
     {
         $extHostname = $this->module_settings['domainName'];
-        return $this->dirs['confDir'] . $extHostname . "/$extHostname.key";
+        return $this->dirs['confDir'] . '/' .$extHostname . "/$extHostname.key";
     }
 
     /**
@@ -386,9 +400,9 @@ class GetSslMain extends Injectable
             && $this->module_settings['autoUpdate'] === '1'
             && !empty($this->module_settings['domainName'])
         ) {
-            $workerPath = $this->moduleDir . '/db/getssl';
-            $getSslPath = self::GET_SSL_BIN;
-            return "0 1 1,15 * * {$getSslPath} -a -U -q -w '$workerPath' > /dev/null 2> /dev/null" . PHP_EOL;
+            $workerPath = $this->dirs['moduleDir']. '/db/getssl';
+            $getSslPath = $this->dirs['getSslPath'];
+            return "0 1 1,15 * * $getSslPath -a -U -q -w '$workerPath' > /dev/null 2> /dev/null" . PHP_EOL;
         }
         return '';
     }
