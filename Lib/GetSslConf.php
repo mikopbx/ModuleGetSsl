@@ -21,11 +21,31 @@
 namespace Modules\ModuleGetSsl\Lib;
 
 use MikoPBX\Core\System\PBX;
+use MikoPBX\Core\System\Processes;
+use MikoPBX\Core\System\Util;
 use MikoPBX\Modules\Config\ConfigClass;
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
+use Modules\ModuleGetSsl\Models\ModuleGetSsl;
 
 class GetSslConf extends ConfigClass
 {
+
+    /**
+     * Receive information about mikopbx main database changes
+     *
+     * @param $data
+     */
+    public function modelsEventChangeData($data): void
+    {
+        $phpPath = Util::which('php');
+        $moduleModels = [
+            ModuleGetSsl::class,
+        ];
+        if (in_array($data['model'], $moduleModels, true)){
+            Processes::mwExecBg("$phpPath -f $this->moduleDir/bin/reloadCron.php", '/dev/null', 3);
+        }
+    }
+
     /**
      *  Process CoreAPI requests under root rights
      *

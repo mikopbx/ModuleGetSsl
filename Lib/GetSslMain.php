@@ -397,7 +397,7 @@ class GetSslMain extends Injectable
     {
         if (
             PbxExtensionUtils::isEnabled($this->moduleUniqueID)
-            && $this->module_settings['autoUpdate'] === '1'
+            && intval($this->module_settings['autoUpdate']) === 1
             && !empty($this->module_settings['domainName'])
         ) {
             $workerPath = $this->dirs['moduleDir']. '/db/getssl';
