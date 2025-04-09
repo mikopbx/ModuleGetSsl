@@ -1,544 +1,141 @@
 "use strict";
 
-/*
- * Copyright (C) MIKO LLC - All Rights Reserved
- * Unauthorized copying of this file, via any medium is strictly prohibited
- * Proprietary and confidential
- * Written by Nikolay Beketov, 11 2018
- *
- */
-var idUrl = 'module-get-ssl';
-var idForm = 'module-get-ssl-form';
-var className = 'ModuleGetSsl';
-var inputClassName = 'mikopbx-module-input';
-/* global globalRootUrl, globalTranslate, Form, Config */
+/* global globalRootUrl, globalTranslate, Form, Config, PbxApi */
+// Constants related to the form and module
+var idUrl = 'module-get-ssl'; // API endpoint for SSL module
+
+var idForm = 'module-get-ssl-form'; // Form element ID for SSL module
+
+var className = 'ModuleGetSsl'; // Class name for this module
+// Main ModuleGetSsl class definition
 
 var ModuleGetSsl = {
+  // Cache commonly used jQuery objects
   $formObj: $('#' + idForm),
   $checkBoxes: $('#' + idForm + ' .ui.checkbox'),
-  $dropDowns: $('#' + idForm + ' .ui.dropdown'),
-  saveTableAJAXUrl: globalRootUrl + idUrl + "/saveTableData",
-  deleteRecordAJAXUrl: globalRootUrl + idUrl + "/delete",
-  $disabilityFields: $('#' + idForm + '  .disability'),
+  $disabilityFields: $('#' + idForm + ' .disability'),
   $statusToggle: $('#module-status-toggle'),
   $moduleStatus: $('#status'),
   $intervalId: undefined,
-
-  /**
-   * Field validation rules
-   * https://semantic-ui.com/behaviors/form.html
-   */
+  // To manage the interval for SSL status check
+  // Validation rules for the form
   validateRules: {
-    textField: {
-      identifier: 'text_field',
+    domainName: {
+      identifier: 'domainName',
       rules: [{
         type: 'empty',
-        prompt: globalTranslate.mod_tplValidateValueIsEmpty
-      }]
-    },
-    areaField: {
-      identifier: 'text_area_field',
-      rules: [{
-        type: 'empty',
-        prompt: globalTranslate.mod_tplValidateValueIsEmpty
-      }]
-    },
-    passwordField: {
-      identifier: 'password_field',
-      rules: [{
-        type: 'empty',
-        prompt: globalTranslate.mod_tplValidateValueIsEmpty
+        prompt: globalTranslate.module_getssl_DomainNameEmpty
       }]
     }
   },
 
   /**
-   * On page load we init some Semantic UI library
+   * Initialize the module, bind event listeners, and setup the form.
+   * This function is called when the document is ready.
    */
   initialize: function initialize() {
-    // инициализируем чекбоксы и выподающие менюшки
-    window[className].$checkBoxes.checkbox();
-    window[className].$dropDowns.dropdown();
-    window[className].checkStatusToggle();
-    window.addEventListener('ModuleStatusChanged', window[className].checkStatusToggle);
-    window[className].initializeForm();
-    $('.menu .item').tab();
-    $.get(idUrl + '/getTablesDescription', function (result) {
-      for (var key in result['data']) {
-        var tableName = key + '-table';
+    // Initialize Semantic UI checkboxes
+    this.$checkBoxes.checkbox(); // Check and set module status on load and when the status changes
 
-        if ($('#' + tableName).attr('id') === undefined) {
-          continue;
-        }
+    this.checkStatusToggle();
+    window.addEventListener('ModuleStatusChanged', this.checkStatusToggle); // Initialize form with validation and submit handlers
 
-        window[className].initTable(tableName, result['data'][key]);
-      }
-    });
-    $('#get-cert').click(window[className].getSsl);
-    $('.message .close').on('click', function () {
-      $(this).closest('.message').transition('fade');
-    });
+    this.initializeForm();
+    moduleGetSSLStatusLoopWorker.$resultBlock.hide();
   },
+
+  /**
+   * Request an SSL certificate by calling the server-side API.
+   * This method sends a GET request to initiate the SSL process.
+   */
   getSsl: function getSsl() {
-    $('#div-waiting').show();
-    $('#div-result').hide();
-    $.get("/pbxcore/api/modules/".concat(className, "/get-cert"), function (result) {
-      if (result.messages.error !== undefined) {
-        $('#div-result-text').html(result.messages.error.replace('\n', '<br>'));
-        $('#div-waiting').hide();
-        $('#div-result').show();
-      } else {
-        if (window[className].$intervalId !== undefined) {
-          clearInterval(window[className].$intervalId);
-        }
-
-        window[className].$intervalId = setInterval(window[className].checkResult, 5000);
-      }
-    });
-  },
-  checkResult: function checkResult() {
-    $.get("/pbxcore/api/modules/".concat(className, "/check-result"), function (result) {
-      if (result.data.result !== undefined) {
-        window[className].$intervalId = setInterval(window[className].checkResult, 5000);
-        $('#div-result-text').html(result.data.result.replace('\n', '<br>'));
-        $('#div-waiting').hide();
-        $('#div-result').show();
-        clearInterval(window[className].$intervalId);
-      }
-    });
-  },
-
-  /**
-   * Подготавливает список выбора
-   * @param selected
-   * @returns {[]}
-   */
-  makeDropdownList: function makeDropdownList(selectType, selected) {
-    var values = [{
-      name: ' --- ',
-      value: '',
-      selected: '' === selected
-    }];
-    $('#' + selectType + ' option').each(function (index, obj) {
-      values.push({
-        name: obj.text,
-        value: obj.value,
-        selected: selected === obj.value
-      });
-    });
-    return values;
-  },
-
-  /**
-   * Обработка изменения группы в списке
-   */
-  changeGroupInList: function changeGroupInList(value, text, choice) {
-    var tdInput = $(choice).closest('td').find('input');
-    tdInput.attr('data-value', value);
-    tdInput.attr('value', value);
-    var currentRowId = $(choice).closest('tr').attr('id');
-    var tableName = $(choice).closest('table').attr('id').replace('-table', '');
-
-    if (currentRowId !== undefined && tableName !== undefined) {
-      window[className].sendChangesToServer(tableName, currentRowId);
-    }
-  },
-
-  /**
-   * Add new Table.
-   */
-  initTable: function initTable(tableName, options) {
-    var columns = [];
-    var columnsArray4Sort = [];
-
-    for (var colName in options['cols']) {
-      columns.push({
-        data: colName
-      });
-      columnsArray4Sort.push(colName);
-    }
-
-    $('#' + tableName).DataTable({
-      ajax: {
-        url: idUrl + options.ajaxUrl + '?table=' + tableName.replace('-table', ''),
-        dataSrc: 'data'
-      },
-      columns: columns,
-      paging: true,
-      sDom: 'rtip',
-      deferRender: true,
-      pageLength: 17,
-      infoCallback: function infoCallback(settings, start, end, max, total, pre) {
-        return '';
-      },
-      language: SemanticLocalization.dataTableLocalisation,
-      ordering: false,
-
-      /**
-       * Builder row presentation
-       * @param row
-       * @param data
-       */
-      createdRow: function createdRow(row, data) {
-        var cols = $('td', row);
-        var headers = $('#' + tableName + ' thead tr th');
-
-        for (var key in data) {
-          var index = columnsArray4Sort.indexOf(key);
-
-          if (key === 'rowIcon') {
-            cols.eq(index).html('<i class="ui ' + data[key] + ' circle icon"></i>');
-          } else if (key === 'delButton') {
-            var templateDeleteButton = '<div class="ui small basic icon buttons action-buttons">' + '<a href="' + window[className].deleteRecordAJAXUrl + '/' + data.id + '" data-value = "' + data.DT_RowId + '"' + ' class="ui button delete two-steps-delete popuped" data-content="' + globalTranslate.bt_ToolTipDelete + '">' + '<i class="icon trash red"></i></a></div>';
-            cols.eq(index).html(templateDeleteButton);
-          } else if (key === 'priority') {
-            cols.eq(index).addClass('dragHandle');
-            cols.eq(index).html('<i class="ui sort circle icon"></i>'); // Приоритет устанавливаем для строки.
-
-            $(row).attr('m-priority', data[key]);
-          } else {
-            var template = '<div class="ui transparent fluid input inline-edit">' + '<input colName="' + key + '" class="' + inputClassName + '" type="text" data-value="' + data[key] + '" value="' + data[key] + '"></div>';
-            $('td', row).eq(index).html(template);
-          }
-
-          if (options['cols'][key] === undefined) {
-            continue;
-          }
-
-          var additionalClass = options['cols'][key]['class'];
-
-          if (additionalClass !== undefined && additionalClass !== '') {
-            headers.eq(index).addClass(additionalClass);
-          }
-
-          var header = options['cols'][key]['header'];
-
-          if (header !== undefined && header !== '') {
-            headers.eq(index).html(header);
-          }
-
-          var selectMetaData = options['cols'][key]['select'];
-
-          if (selectMetaData !== undefined) {
-            var newTemplate = $('#template-select').html().replace('PARAM', data[key]);
-
-            var _template = '<input class="' + inputClassName + '" colName="' + key + '" selectType="' + selectMetaData + '" style="display: none;" type="text" data-value="' + data[key] + '" value="' + data[key] + '"></div>';
-
-            cols.eq(index).html(newTemplate + _template);
-          }
-        }
-      },
-
-      /**
-       * Draw event - fired once the table has completed a draw.
-       */
-      drawCallback: function drawCallback(settings) {
-        window[className].drowSelectGroup(settings.sTableId);
-      }
-    });
-    var body = $('body'); // Клик по полю. Вход для редактирования значения.
-
-    body.on('focusin', '.' + inputClassName, function (e) {
-      $(e.target).transition('glow');
-      $(e.target).closest('div').removeClass('transparent').addClass('changed-field');
-      $(e.target).attr('readonly', false);
-    }); // Отправка формы на сервер по Enter или Tab
-
-    $(document).on('keydown', function (e) {
-      var keyCode = e.keyCode || e.which;
-
-      if (keyCode === 13 || keyCode === 9 && $(':focus').hasClass('mikopbx-module-input')) {
-        window[className].endEditInput();
-      }
-    });
-    body.on('click', 'a.delete', function (e) {
-      e.preventDefault();
-      var currentRowId = $(e.target).closest('tr').attr('id');
-      var tableName = $(e.target).closest('table').attr('id').replace('-table', '');
-      window[className].deleteRow(tableName, currentRowId);
-    }); // Добавление новой строки
-    // Отправка формы на сервер по уходу с поля ввода
-
-    body.on('focusout', '.' + inputClassName, window[className].endEditInput); // Кнопка "Добавить новую запись"
-
-    $('[id-table = "' + tableName + '"]').on('click', window[className].addNewRow);
-  },
-
-  /**
-   * Перемещение строки, изменение приоритета.
-   */
-  cbOnDrop: function cbOnDrop(table, row) {
-    var priorityWasChanged = false;
-    var priorityData = {};
-    $(table).find('tr').each(function (index, obj) {
-      var ruleId = $(obj).attr('id');
-      var oldPriority = parseInt($(obj).attr('m-priority'), 10);
-      var newPriority = obj.rowIndex;
-
-      if (!isNaN(ruleId) && oldPriority !== newPriority) {
-        priorityWasChanged = true;
-        priorityData[ruleId] = newPriority;
-      }
-    });
-
-    if (priorityWasChanged) {
-      $.api({
-        on: 'now',
-        url: "".concat(globalRootUrl).concat(idUrl, "/changePriority?table=") + $(table).attr('id').replace('-table', ''),
-        method: 'POST',
-        data: priorityData
-      });
-    }
-  },
-
-  /**
-   * Окончание редактирования поля ввода.
-   * Не относится к select.
-   * @param e
-   */
-  endEditInput: function endEditInput(e) {
-    var $el = $('.changed-field').closest('tr');
-    $el.each(function (index, obj) {
-      var currentRowId = $(obj).attr('id');
-      var tableName = $(obj).closest('table').attr('id').replace('-table', '');
-
-      if (currentRowId !== undefined && tableName !== undefined) {
-        window[className].sendChangesToServer(tableName, currentRowId);
-      }
-    });
-  },
-
-  /**
-   * Добавление новой строки в таблицу.
-   * @param e
-   */
-  addNewRow: function addNewRow(e) {
-    var idTable = $(e.target).attr('id-table');
-    var table = $('#' + idTable);
-    e.preventDefault();
-    table.find('.dataTables_empty').remove(); // Отправим на запись все что не записано еще
-
-    var $el = table.find('.changed-field').closest('tr');
-    $el.each(function (index, obj) {
-      var currentRowId = $(obj).attr('id');
-
-      if (currentRowId !== undefined) {
-        window[className].sendChangesToServer(currentRowId);
-      }
-    });
-    var id = "new" + Math.floor(Math.random() * Math.floor(500));
-    var rowTemplate = '<tr id="' + id + '" role="row" class="even">' + table.find('tr#TEMPLATE').html().replace('TEMPLATE', id) + '</tr>';
-    table.find('tbody > tr:first').before(rowTemplate);
-    window[className].drowSelectGroup(idTable);
-  },
-
-  /**
-   * Обновление select элементов.
-   * @param tableId
-   */
-  drowSelectGroup: function drowSelectGroup(tableId) {
-    $('#' + tableId).find('tr#TEMPLATE').hide();
-    var selestGroup = $('.select-group');
-    selestGroup.each(function (index, obj) {
-      var selectType = $(obj).closest('td').find('input').attr('selectType');
-      $(obj).dropdown({
-        values: window[className].makeDropdownList(selectType, $(obj).attr('data-value'))
-      });
-    });
-    selestGroup.dropdown({
-      onChange: window[className].changeGroupInList
-    });
-    $('#' + tableId).tableDnD({
-      onDrop: window[className].cbOnDrop,
-      onDragClass: 'hoveringRow',
-      dragHandle: '.dragHandle'
-    });
-  },
-
-  /**
-   * Удаление строки
-   * @param tableName
-   * @param id - record id
-   */
-  deleteRow: function deleteRow(tableName, id) {
-    var table = $('#' + tableName + '-table');
-
-    if (id.substr(0, 3) === 'new') {
-      table.find('tr#' + id).remove();
-      return;
-    }
-
     $.api({
-      url: window[className].deleteRecordAJAXUrl + '?id=' + id + '&table=' + tableName,
-      on: 'now',
-      onSuccess: function onSuccess(response) {
-        if (response.success) {
-          table.find('tr#' + id).remove();
-
-          if (table.find('tbody > tr').length === 0) {
-            table.find('tbody').append('<tr class="odd"></tr>');
-          }
-        }
-      }
-    });
-  },
-
-  /**
-   * Отправка данных на сервер при измении
-   */
-  sendChangesToServer: function sendChangesToServer(tableName, recordId) {
-    var data = {
-      'pbx-table-id': tableName,
-      'pbx-row-id': recordId
-    };
-    var notEmpty = false;
-    $("tr#" + recordId + ' .' + inputClassName).each(function (index, obj) {
-      var colName = $(obj).attr('colName');
-
-      if (colName !== undefined) {
-        data[$(obj).attr('colName')] = $(obj).val();
-
-        if ($(obj).val() !== '') {
-          notEmpty = true;
-        }
-      }
-    });
-
-    if (notEmpty === false) {
-      return;
-    }
-
-    $("tr#" + recordId + " .user.circle").removeClass('user circle').addClass('spinner loading');
-    $.api({
-      url: window[className].saveTableAJAXUrl,
+      url: "".concat(Config.pbxUrl, "/pbxcore/api/modules/").concat(className, "/get-cert"),
       on: 'now',
       method: 'POST',
-      data: data,
-      successTest: function successTest(response) {
-        return response !== undefined && Object.keys(response).length > 0 && response.success === true;
+      beforeXHR: function beforeXHR(xhr) {
+        xhr.setRequestHeader('X-Async-Response-Channel-Id', moduleGetSSLStatusLoopWorker.channelId);
+        xhr.setRequestHeader('X-Processor-Timeout', '120');
+        return xhr;
       },
+      beforeSend: function beforeSend(settings) {
+        return settings;
+      },
+      successTest: PbxApi.successTest,
+
+      /**
+       * Handles the successful response of the 'get-cert' API request.
+       * @param {object} response - The response object.
+       */
       onSuccess: function onSuccess(response) {
-        if (response.data !== undefined) {
-          var rowId = response.data['pbx-row-id'];
-          var table = $('#' + response.data['pbx-table-id'] + '-table');
-          table.find("tr#" + rowId + " input").attr('readonly', true);
-          table.find("tr#" + rowId + " div").removeClass('changed-field loading').addClass('transparent');
-          table.find("tr#" + rowId + " .spinner.loading").addClass('user circle').removeClass('spinner loading');
-
-          if (rowId !== response.data['newId']) {
-            $("tr#".concat(rowId)).attr('id', response.data['newId']);
-          }
-        }
+        moduleGetSSLStatusLoopWorker.editor.getSession().setValue('');
       },
+
+      /**
+       * Handles the failure response of the 'get-available-ldap-users' API request.
+       * @param {object} response - The response object.
+       */
       onFailure: function onFailure(response) {
-        if (response.message !== undefined) {
-          UserMessage.showMultiString(response.message);
-        }
-
-        $("tr#" + recordId + " .spinner.loading").addClass('user circle').removeClass('spinner loading');
-      },
-      onError: function onError(errorMessage, element, xhr) {
-        if (xhr.status === 403) {
-          window.location = globalRootUrl + "session/index";
-        }
+        UserMessage.showMultiString(response.message);
+        moduleGetSSLStatusLoopWorker.$resultBlock.hide();
       }
     });
   },
 
   /**
-   * Change some form elements classes depends of module status
+   * Toggles the form fields and status visibility based on the module's status.
+   * Enables or disables form fields depending on whether the module is active.
    */
   checkStatusToggle: function checkStatusToggle() {
-    if (window[className].$statusToggle.checkbox('is checked')) {
-      window[className].$disabilityFields.removeClass('disabled');
-      window[className].$moduleStatus.show();
+    // If the module status is active, enable form fields and show status
+    if (ModuleGetSsl.$statusToggle.checkbox('is checked')) {
+      ModuleGetSsl.$disabilityFields.removeClass('disabled');
+      ModuleGetSsl.$moduleStatus.show();
     } else {
-      window[className].$disabilityFields.addClass('disabled');
-      window[className].$moduleStatus.hide();
+      // If the module status is inactive, disable form fields and hide status
+      ModuleGetSsl.$disabilityFields.addClass('disabled');
+      ModuleGetSsl.$moduleStatus.hide();
     }
   },
 
   /**
-   * Send command to restart module workers after data changes,
-   * Also we can do it on TemplateConf->modelsEventChangeData method
-   */
-  applyConfigurationChanges: function applyConfigurationChanges() {
-    window[className].changeStatus('Updating');
-    $.api({
-      url: "".concat(Config.pbxUrl, "/pbxcore/api/modules/") + className + "/reload",
-      on: 'now',
-      successTest: function successTest(response) {
-        // test whether a JSON response is valid
-        return Object.keys(response).length > 0 && response.result === true;
-      },
-      onSuccess: function onSuccess() {
-        window[className].changeStatus('Connected');
-      },
-      onFailure: function onFailure() {
-        window[className].changeStatus('Disconnected');
-      }
-    });
-  },
-
-  /**
-   * We can modify some data before form send
-   * @param settings
-   * @returns {*}
+   * Callback before sending the form.
+   * @param {Object} settings - Ajax request settings.
+   * @returns {Object} The modified Ajax request settings.
    */
   cbBeforeSendForm: function cbBeforeSendForm(settings) {
     var result = settings;
-    result.data = window[className].$formObj.form('get values');
+    result.data = ModuleGetSsl.$formObj.form('get values');
     return result;
   },
 
   /**
-   * Some actions after forms send
+   * Callback function after sending the form.
    */
-  cbAfterSendForm: function cbAfterSendForm() {
-    window[className].applyConfigurationChanges();
+  cbAfterSendForm: function cbAfterSendForm(response) {
+    if (Form.checkSuccess(response)) {
+      ModuleGetSsl.getSsl();
+    }
   },
 
   /**
-   * Initialize form parameters
+   * Initializes the form validation and submission logic.
+   * Sets up callbacks and validation rules for the form.
    */
   initializeForm: function initializeForm() {
-    Form.$formObj = window[className].$formObj;
-    Form.url = "".concat(globalRootUrl).concat(idUrl, "/save");
-    Form.validateRules = window[className].validateRules;
-    Form.cbBeforeSendForm = window[className].cbBeforeSendForm;
-    Form.cbAfterSendForm = window[className].cbAfterSendForm;
+    // Assign form-related settings to the Form object
+    Form.$formObj = ModuleGetSsl.$formObj;
+    Form.url = "".concat(globalRootUrl).concat(idUrl, "/").concat(idUrl, "/save");
+    Form.validateRules = ModuleGetSsl.validateRules;
+    Form.enableDirrity = false;
+    Form.cbAfterSendForm = ModuleGetSsl.cbAfterSendForm;
+    Form.cbBeforeSendForm = ModuleGetSsl.cbBeforeSendForm; // Initialize the form with the specified parameters
+
     Form.initialize();
-  },
-
-  /**
-   * Update the module state on form label
-   * @param status
-   */
-  changeStatus: function changeStatus(status) {
-    switch (status) {
-      case 'Connected':
-        window[className].$moduleStatus.removeClass('grey').removeClass('red').addClass('green');
-        window[className].$moduleStatus.html(globalTranslate.module_get_sslConnected);
-        break;
-
-      case 'Disconnected':
-        window[className].$moduleStatus.removeClass('green').removeClass('red').addClass('grey');
-        window[className].$moduleStatus.html(globalTranslate.module_get_sslDisconnected);
-        break;
-
-      case 'Updating':
-        window[className].$moduleStatus.removeClass('green').removeClass('red').addClass('grey');
-        window[className].$moduleStatus.html("<i class=\"spinner loading icon\"></i>".concat(globalTranslate.module_get_sslUpdateStatus));
-        break;
-
-      default:
-        window[className].$moduleStatus.removeClass('green').removeClass('red').addClass('grey');
-        window[className].$moduleStatus.html(globalTranslate.module_get_sslDisconnected);
-        break;
-    }
   }
-};
+}; // Initialize the ModuleGetSsl class when the document is ready
+
 $(document).ready(function () {
-  window[className].initialize();
+  ModuleGetSsl.initialize();
 });
-//# sourceMappingURL=module-get-ssl-index.js.map
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbInNyYy9tb2R1bGUtZ2V0LXNzbC1pbmRleC5qcyJdLCJuYW1lcyI6WyJpZFVybCIsImlkRm9ybSIsImNsYXNzTmFtZSIsIk1vZHVsZUdldFNzbCIsIiRmb3JtT2JqIiwiJCIsIiRjaGVja0JveGVzIiwiJGRpc2FiaWxpdHlGaWVsZHMiLCIkc3RhdHVzVG9nZ2xlIiwiJG1vZHVsZVN0YXR1cyIsIiRpbnRlcnZhbElkIiwidW5kZWZpbmVkIiwidmFsaWRhdGVSdWxlcyIsImRvbWFpbk5hbWUiLCJpZGVudGlmaWVyIiwicnVsZXMiLCJ0eXBlIiwicHJvbXB0IiwiZ2xvYmFsVHJhbnNsYXRlIiwibW9kdWxlX2dldHNzbF9Eb21haW5OYW1lRW1wdHkiLCJpbml0aWFsaXplIiwiY2hlY2tib3giLCJjaGVja1N0YXR1c1RvZ2dsZSIsIndpbmRvdyIsImFkZEV2ZW50TGlzdGVuZXIiLCJpbml0aWFsaXplRm9ybSIsIm1vZHVsZUdldFNTTFN0YXR1c0xvb3BXb3JrZXIiLCIkcmVzdWx0QmxvY2siLCJoaWRlIiwiZ2V0U3NsIiwiYXBpIiwidXJsIiwiQ29uZmlnIiwicGJ4VXJsIiwib24iLCJtZXRob2QiLCJiZWZvcmVYSFIiLCJ4aHIiLCJzZXRSZXF1ZXN0SGVhZGVyIiwiY2hhbm5lbElkIiwiYmVmb3JlU2VuZCIsInNldHRpbmdzIiwic3VjY2Vzc1Rlc3QiLCJQYnhBcGkiLCJvblN1Y2Nlc3MiLCJyZXNwb25zZSIsImVkaXRvciIsImdldFNlc3Npb24iLCJzZXRWYWx1ZSIsIm9uRmFpbHVyZSIsIlVzZXJNZXNzYWdlIiwic2hvd011bHRpU3RyaW5nIiwibWVzc2FnZSIsInJlbW92ZUNsYXNzIiwic2hvdyIsImFkZENsYXNzIiwiY2JCZWZvcmVTZW5kRm9ybSIsInJlc3VsdCIsImRhdGEiLCJmb3JtIiwiY2JBZnRlclNlbmRGb3JtIiwiRm9ybSIsImNoZWNrU3VjY2VzcyIsImdsb2JhbFJvb3RVcmwiLCJlbmFibGVEaXJyaXR5IiwiZG9jdW1lbnQiLCJyZWFkeSJdLCJtYXBwaW5ncyI6Ijs7QUFBQTtBQUVBO0FBQ0EsSUFBTUEsS0FBSyxHQUFPLGdCQUFsQixDLENBQWlEOztBQUNqRCxJQUFNQyxNQUFNLEdBQU0scUJBQWxCLEMsQ0FBaUQ7O0FBQ2pELElBQU1DLFNBQVMsR0FBRyxjQUFsQixDLENBQWlEO0FBRWpEOztBQUNBLElBQU1DLFlBQVksR0FBRztBQUNwQjtBQUNBQyxFQUFBQSxRQUFRLEVBQUVDLENBQUMsQ0FBQyxNQUFNSixNQUFQLENBRlM7QUFHcEJLLEVBQUFBLFdBQVcsRUFBRUQsQ0FBQyxDQUFDLE1BQU1KLE1BQU4sR0FBZSxlQUFoQixDQUhNO0FBSXBCTSxFQUFBQSxpQkFBaUIsRUFBRUYsQ0FBQyxDQUFDLE1BQU1KLE1BQU4sR0FBZSxjQUFoQixDQUpBO0FBS3BCTyxFQUFBQSxhQUFhLEVBQUVILENBQUMsQ0FBQyx1QkFBRCxDQUxJO0FBTXBCSSxFQUFBQSxhQUFhLEVBQUVKLENBQUMsQ0FBQyxTQUFELENBTkk7QUFPcEJLLEVBQUFBLFdBQVcsRUFBRUMsU0FQTztBQU9JO0FBRXhCO0FBQ0FDLEVBQUFBLGFBQWEsRUFBRTtBQUNkQyxJQUFBQSxVQUFVLEVBQUU7QUFDWEMsTUFBQUEsVUFBVSxFQUFFLFlBREQ7QUFFWEMsTUFBQUEsS0FBSyxFQUFFLENBQ047QUFDQ0MsUUFBQUEsSUFBSSxFQUFFLE9BRFA7QUFFQ0MsUUFBQUEsTUFBTSxFQUFFQyxlQUFlLENBQUNDO0FBRnpCLE9BRE07QUFGSTtBQURFLEdBVks7O0FBc0JwQjtBQUNEO0FBQ0E7QUFDQTtBQUNDQyxFQUFBQSxVQTFCb0Isd0JBMEJQO0FBQ1o7QUFDQSxTQUFLZCxXQUFMLENBQWlCZSxRQUFqQixHQUZZLENBSVo7O0FBQ0EsU0FBS0MsaUJBQUw7QUFDQUMsSUFBQUEsTUFBTSxDQUFDQyxnQkFBUCxDQUF3QixxQkFBeEIsRUFBK0MsS0FBS0YsaUJBQXBELEVBTlksQ0FRWjs7QUFDQSxTQUFLRyxjQUFMO0FBRUFDLElBQUFBLDRCQUE0QixDQUFDQyxZQUE3QixDQUEwQ0MsSUFBMUM7QUFDQSxHQXRDbUI7O0FBd0NwQjtBQUNEO0FBQ0E7QUFDQTtBQUNDQyxFQUFBQSxNQTVDb0Isb0JBNENYO0FBQ1J4QixJQUFBQSxDQUFDLENBQUN5QixHQUFGLENBQU07QUFDTEMsTUFBQUEsR0FBRyxZQUFLQyxNQUFNLENBQUNDLE1BQVosa0NBQTBDL0IsU0FBMUMsY0FERTtBQUVMZ0MsTUFBQUEsRUFBRSxFQUFFLEtBRkM7QUFHTEMsTUFBQUEsTUFBTSxFQUFFLE1BSEg7QUFJTEMsTUFBQUEsU0FKSyxxQkFJS0MsR0FKTCxFQUlVO0FBQ2RBLFFBQUFBLEdBQUcsQ0FBQ0MsZ0JBQUosQ0FBc0IsNkJBQXRCLEVBQXFEWiw0QkFBNEIsQ0FBQ2EsU0FBbEY7QUFDQUYsUUFBQUEsR0FBRyxDQUFDQyxnQkFBSixDQUFzQixxQkFBdEIsRUFBNkMsS0FBN0M7QUFDQSxlQUFPRCxHQUFQO0FBQ0EsT0FSSTtBQVNMRyxNQUFBQSxVQVRLLHNCQVNNQyxRQVROLEVBU2dCO0FBQ3BCLGVBQU9BLFFBQVA7QUFDQSxPQVhJO0FBWUxDLE1BQUFBLFdBQVcsRUFBRUMsTUFBTSxDQUFDRCxXQVpmOztBQWFMO0FBQ0g7QUFDQTtBQUNBO0FBQ0dFLE1BQUFBLFNBQVMsRUFBRSxtQkFBVUMsUUFBVixFQUFvQjtBQUM5Qm5CLFFBQUFBLDRCQUE0QixDQUFDb0IsTUFBN0IsQ0FBb0NDLFVBQXBDLEdBQWlEQyxRQUFqRCxDQUEwRCxFQUExRDtBQUNBLE9BbkJJOztBQW9CTDtBQUNIO0FBQ0E7QUFDQTtBQUNHQyxNQUFBQSxTQUFTLEVBQUUsbUJBQVNKLFFBQVQsRUFBbUI7QUFDN0JLLFFBQUFBLFdBQVcsQ0FBQ0MsZUFBWixDQUE0Qk4sUUFBUSxDQUFDTyxPQUFyQztBQUNBMUIsUUFBQUEsNEJBQTRCLENBQUNDLFlBQTdCLENBQTBDQyxJQUExQztBQUNBO0FBM0JJLEtBQU47QUE2QkEsR0ExRW1COztBQTRFcEI7QUFDRDtBQUNBO0FBQ0E7QUFDQ04sRUFBQUEsaUJBaEZvQiwrQkFnRkE7QUFDbkI7QUFDQSxRQUFJbkIsWUFBWSxDQUFDSyxhQUFiLENBQTJCYSxRQUEzQixDQUFvQyxZQUFwQyxDQUFKLEVBQXVEO0FBQ3REbEIsTUFBQUEsWUFBWSxDQUFDSSxpQkFBYixDQUErQjhDLFdBQS9CLENBQTJDLFVBQTNDO0FBQ0FsRCxNQUFBQSxZQUFZLENBQUNNLGFBQWIsQ0FBMkI2QyxJQUEzQjtBQUNBLEtBSEQsTUFHTztBQUNOO0FBQ0FuRCxNQUFBQSxZQUFZLENBQUNJLGlCQUFiLENBQStCZ0QsUUFBL0IsQ0FBd0MsVUFBeEM7QUFDQXBELE1BQUFBLFlBQVksQ0FBQ00sYUFBYixDQUEyQm1CLElBQTNCO0FBQ0E7QUFDRCxHQTFGbUI7O0FBNEZwQjtBQUNEO0FBQ0E7QUFDQTtBQUNBO0FBQ0M0QixFQUFBQSxnQkFqR29CLDRCQWlHSGYsUUFqR0csRUFpR087QUFDMUIsUUFBTWdCLE1BQU0sR0FBR2hCLFFBQWY7QUFDQWdCLElBQUFBLE1BQU0sQ0FBQ0MsSUFBUCxHQUFjdkQsWUFBWSxDQUFDQyxRQUFiLENBQXNCdUQsSUFBdEIsQ0FBMkIsWUFBM0IsQ0FBZDtBQUNBLFdBQU9GLE1BQVA7QUFDQSxHQXJHbUI7O0FBdUdwQjtBQUNEO0FBQ0E7QUFDQ0csRUFBQUEsZUExR29CLDJCQTBHSmYsUUExR0ksRUEwR007QUFDekIsUUFBSWdCLElBQUksQ0FBQ0MsWUFBTCxDQUFrQmpCLFFBQWxCLENBQUosRUFBZ0M7QUFDL0IxQyxNQUFBQSxZQUFZLENBQUMwQixNQUFiO0FBQ0E7QUFDRCxHQTlHbUI7O0FBaUhwQjtBQUNEO0FBQ0E7QUFDQTtBQUNDSixFQUFBQSxjQXJIb0IsNEJBcUhIO0FBQ2hCO0FBQ0FvQyxJQUFBQSxJQUFJLENBQUN6RCxRQUFMLEdBQWdCRCxZQUFZLENBQUNDLFFBQTdCO0FBQ0F5RCxJQUFBQSxJQUFJLENBQUM5QixHQUFMLGFBQWNnQyxhQUFkLFNBQThCL0QsS0FBOUIsY0FBdUNBLEtBQXZDO0FBQ0E2RCxJQUFBQSxJQUFJLENBQUNqRCxhQUFMLEdBQXFCVCxZQUFZLENBQUNTLGFBQWxDO0FBQ0FpRCxJQUFBQSxJQUFJLENBQUNHLGFBQUwsR0FBcUIsS0FBckI7QUFDQUgsSUFBQUEsSUFBSSxDQUFDRCxlQUFMLEdBQXVCekQsWUFBWSxDQUFDeUQsZUFBcEM7QUFDQUMsSUFBQUEsSUFBSSxDQUFDTCxnQkFBTCxHQUF3QnJELFlBQVksQ0FBQ3FELGdCQUFyQyxDQVBnQixDQVFoQjs7QUFDQUssSUFBQUEsSUFBSSxDQUFDekMsVUFBTDtBQUNBO0FBL0htQixDQUFyQixDLENBa0lBOztBQUNBZixDQUFDLENBQUM0RCxRQUFELENBQUQsQ0FBWUMsS0FBWixDQUFrQixZQUFNO0FBQ3ZCL0QsRUFBQUEsWUFBWSxDQUFDaUIsVUFBYjtBQUNBLENBRkQiLCJzb3VyY2VzQ29udGVudCI6WyIvKiBnbG9iYWwgZ2xvYmFsUm9vdFVybCwgZ2xvYmFsVHJhbnNsYXRlLCBGb3JtLCBDb25maWcsIFBieEFwaSAqL1xuXG4vLyBDb25zdGFudHMgcmVsYXRlZCB0byB0aGUgZm9ybSBhbmQgbW9kdWxlXG5jb25zdCBpZFVybCAgICAgPSAnbW9kdWxlLWdldC1zc2wnOyAgICAgICAgICAgICAgLy8gQVBJIGVuZHBvaW50IGZvciBTU0wgbW9kdWxlXG5jb25zdCBpZEZvcm0gICAgPSAnbW9kdWxlLWdldC1zc2wtZm9ybSc7ICAgICAgICAgLy8gRm9ybSBlbGVtZW50IElEIGZvciBTU0wgbW9kdWxlXG5jb25zdCBjbGFzc05hbWUgPSAnTW9kdWxlR2V0U3NsJzsgICAgICAgICAgICAgICAgLy8gQ2xhc3MgbmFtZSBmb3IgdGhpcyBtb2R1bGVcblxuLy8gTWFpbiBNb2R1bGVHZXRTc2wgY2xhc3MgZGVmaW5pdGlvblxuY29uc3QgTW9kdWxlR2V0U3NsID0ge1xuXHQvLyBDYWNoZSBjb21tb25seSB1c2VkIGpRdWVyeSBvYmplY3RzXG5cdCRmb3JtT2JqOiAkKCcjJyArIGlkRm9ybSksXG5cdCRjaGVja0JveGVzOiAkKCcjJyArIGlkRm9ybSArICcgLnVpLmNoZWNrYm94JyksXG5cdCRkaXNhYmlsaXR5RmllbGRzOiAkKCcjJyArIGlkRm9ybSArICcgLmRpc2FiaWxpdHknKSxcblx0JHN0YXR1c1RvZ2dsZTogJCgnI21vZHVsZS1zdGF0dXMtdG9nZ2xlJyksXG5cdCRtb2R1bGVTdGF0dXM6ICQoJyNzdGF0dXMnKSxcblx0JGludGVydmFsSWQ6IHVuZGVmaW5lZCwgLy8gVG8gbWFuYWdlIHRoZSBpbnRlcnZhbCBmb3IgU1NMIHN0YXR1cyBjaGVja1xuXG5cdC8vIFZhbGlkYXRpb24gcnVsZXMgZm9yIHRoZSBmb3JtXG5cdHZhbGlkYXRlUnVsZXM6IHtcblx0XHRkb21haW5OYW1lOiB7XG5cdFx0XHRpZGVudGlmaWVyOiAnZG9tYWluTmFtZScsXG5cdFx0XHRydWxlczogW1xuXHRcdFx0XHR7XG5cdFx0XHRcdFx0dHlwZTogJ2VtcHR5Jyxcblx0XHRcdFx0XHRwcm9tcHQ6IGdsb2JhbFRyYW5zbGF0ZS5tb2R1bGVfZ2V0c3NsX0RvbWFpbk5hbWVFbXB0eSxcblx0XHRcdFx0fSxcblx0XHRcdF0sXG5cdFx0fSxcblx0fSxcblxuXHQvKipcblx0ICogSW5pdGlhbGl6ZSB0aGUgbW9kdWxlLCBiaW5kIGV2ZW50IGxpc3RlbmVycywgYW5kIHNldHVwIHRoZSBmb3JtLlxuXHQgKiBUaGlzIGZ1bmN0aW9uIGlzIGNhbGxlZCB3aGVuIHRoZSBkb2N1bWVudCBpcyByZWFkeS5cblx0ICovXG5cdGluaXRpYWxpemUoKSB7XG5cdFx0Ly8gSW5pdGlhbGl6ZSBTZW1hbnRpYyBVSSBjaGVja2JveGVzXG5cdFx0dGhpcy4kY2hlY2tCb3hlcy5jaGVja2JveCgpO1xuXG5cdFx0Ly8gQ2hlY2sgYW5kIHNldCBtb2R1bGUgc3RhdHVzIG9uIGxvYWQgYW5kIHdoZW4gdGhlIHN0YXR1cyBjaGFuZ2VzXG5cdFx0dGhpcy5jaGVja1N0YXR1c1RvZ2dsZSgpO1xuXHRcdHdpbmRvdy5hZGRFdmVudExpc3RlbmVyKCdNb2R1bGVTdGF0dXNDaGFuZ2VkJywgdGhpcy5jaGVja1N0YXR1c1RvZ2dsZSk7XG5cblx0XHQvLyBJbml0aWFsaXplIGZvcm0gd2l0aCB2YWxpZGF0aW9uIGFuZCBzdWJtaXQgaGFuZGxlcnNcblx0XHR0aGlzLmluaXRpYWxpemVGb3JtKCk7XG5cblx0XHRtb2R1bGVHZXRTU0xTdGF0dXNMb29wV29ya2VyLiRyZXN1bHRCbG9jay5oaWRlKCk7XG5cdH0sXG5cblx0LyoqXG5cdCAqIFJlcXVlc3QgYW4gU1NMIGNlcnRpZmljYXRlIGJ5IGNhbGxpbmcgdGhlIHNlcnZlci1zaWRlIEFQSS5cblx0ICogVGhpcyBtZXRob2Qgc2VuZHMgYSBHRVQgcmVxdWVzdCB0byBpbml0aWF0ZSB0aGUgU1NMIHByb2Nlc3MuXG5cdCAqL1xuXHRnZXRTc2woKSB7XG5cdFx0JC5hcGkoe1xuXHRcdFx0dXJsOiBgJHtDb25maWcucGJ4VXJsfS9wYnhjb3JlL2FwaS9tb2R1bGVzLyR7Y2xhc3NOYW1lfS9nZXQtY2VydGAsXG5cdFx0XHRvbjogJ25vdycsXG5cdFx0XHRtZXRob2Q6ICdQT1NUJyxcblx0XHRcdGJlZm9yZVhIUih4aHIpIHtcblx0XHRcdFx0eGhyLnNldFJlcXVlc3RIZWFkZXIgKCdYLUFzeW5jLVJlc3BvbnNlLUNoYW5uZWwtSWQnLCBtb2R1bGVHZXRTU0xTdGF0dXNMb29wV29ya2VyLmNoYW5uZWxJZCk7XG5cdFx0XHRcdHhoci5zZXRSZXF1ZXN0SGVhZGVyICgnWC1Qcm9jZXNzb3ItVGltZW91dCcsICcxMjAnKTtcblx0XHRcdFx0cmV0dXJuIHhocjtcblx0XHRcdH0sXG5cdFx0XHRiZWZvcmVTZW5kKHNldHRpbmdzKSB7XG5cdFx0XHRcdHJldHVybiBzZXR0aW5ncztcblx0XHRcdH0sXG5cdFx0XHRzdWNjZXNzVGVzdDogUGJ4QXBpLnN1Y2Nlc3NUZXN0LFxuXHRcdFx0LyoqXG5cdFx0XHQgKiBIYW5kbGVzIHRoZSBzdWNjZXNzZnVsIHJlc3BvbnNlIG9mIHRoZSAnZ2V0LWNlcnQnIEFQSSByZXF1ZXN0LlxuXHRcdFx0ICogQHBhcmFtIHtvYmplY3R9IHJlc3BvbnNlIC0gVGhlIHJlc3BvbnNlIG9iamVjdC5cblx0XHRcdCAqL1xuXHRcdFx0b25TdWNjZXNzOiBmdW5jdGlvbiAocmVzcG9uc2UpIHtcblx0XHRcdFx0bW9kdWxlR2V0U1NMU3RhdHVzTG9vcFdvcmtlci5lZGl0b3IuZ2V0U2Vzc2lvbigpLnNldFZhbHVlKCcnKTtcblx0XHRcdH0sXG5cdFx0XHQvKipcblx0XHRcdCAqIEhhbmRsZXMgdGhlIGZhaWx1cmUgcmVzcG9uc2Ugb2YgdGhlICdnZXQtYXZhaWxhYmxlLWxkYXAtdXNlcnMnIEFQSSByZXF1ZXN0LlxuXHRcdFx0ICogQHBhcmFtIHtvYmplY3R9IHJlc3BvbnNlIC0gVGhlIHJlc3BvbnNlIG9iamVjdC5cblx0XHRcdCAqL1xuXHRcdFx0b25GYWlsdXJlOiBmdW5jdGlvbihyZXNwb25zZSkge1xuXHRcdFx0XHRVc2VyTWVzc2FnZS5zaG93TXVsdGlTdHJpbmcocmVzcG9uc2UubWVzc2FnZSk7XG5cdFx0XHRcdG1vZHVsZUdldFNTTFN0YXR1c0xvb3BXb3JrZXIuJHJlc3VsdEJsb2NrLmhpZGUoKTtcblx0XHRcdH0sXG5cdFx0fSlcblx0fSxcblxuXHQvKipcblx0ICogVG9nZ2xlcyB0aGUgZm9ybSBmaWVsZHMgYW5kIHN0YXR1cyB2aXNpYmlsaXR5IGJhc2VkIG9uIHRoZSBtb2R1bGUncyBzdGF0dXMuXG5cdCAqIEVuYWJsZXMgb3IgZGlzYWJsZXMgZm9ybSBmaWVsZHMgZGVwZW5kaW5nIG9uIHdoZXRoZXIgdGhlIG1vZHVsZSBpcyBhY3RpdmUuXG5cdCAqL1xuXHRjaGVja1N0YXR1c1RvZ2dsZSgpIHtcblx0XHQvLyBJZiB0aGUgbW9kdWxlIHN0YXR1cyBpcyBhY3RpdmUsIGVuYWJsZSBmb3JtIGZpZWxkcyBhbmQgc2hvdyBzdGF0dXNcblx0XHRpZiAoTW9kdWxlR2V0U3NsLiRzdGF0dXNUb2dnbGUuY2hlY2tib3goJ2lzIGNoZWNrZWQnKSkge1xuXHRcdFx0TW9kdWxlR2V0U3NsLiRkaXNhYmlsaXR5RmllbGRzLnJlbW92ZUNsYXNzKCdkaXNhYmxlZCcpO1xuXHRcdFx0TW9kdWxlR2V0U3NsLiRtb2R1bGVTdGF0dXMuc2hvdygpO1xuXHRcdH0gZWxzZSB7XG5cdFx0XHQvLyBJZiB0aGUgbW9kdWxlIHN0YXR1cyBpcyBpbmFjdGl2ZSwgZGlzYWJsZSBmb3JtIGZpZWxkcyBhbmQgaGlkZSBzdGF0dXNcblx0XHRcdE1vZHVsZUdldFNzbC4kZGlzYWJpbGl0eUZpZWxkcy5hZGRDbGFzcygnZGlzYWJsZWQnKTtcblx0XHRcdE1vZHVsZUdldFNzbC4kbW9kdWxlU3RhdHVzLmhpZGUoKTtcblx0XHR9XG5cdH0sXG5cblx0LyoqXG5cdCAqIENhbGxiYWNrIGJlZm9yZSBzZW5kaW5nIHRoZSBmb3JtLlxuXHQgKiBAcGFyYW0ge09iamVjdH0gc2V0dGluZ3MgLSBBamF4IHJlcXVlc3Qgc2V0dGluZ3MuXG5cdCAqIEByZXR1cm5zIHtPYmplY3R9IFRoZSBtb2RpZmllZCBBamF4IHJlcXVlc3Qgc2V0dGluZ3MuXG5cdCAqL1xuXHRjYkJlZm9yZVNlbmRGb3JtKHNldHRpbmdzKSB7XG5cdFx0Y29uc3QgcmVzdWx0ID0gc2V0dGluZ3M7XG5cdFx0cmVzdWx0LmRhdGEgPSBNb2R1bGVHZXRTc2wuJGZvcm1PYmouZm9ybSgnZ2V0IHZhbHVlcycpO1xuXHRcdHJldHVybiByZXN1bHQ7XG5cdH0sXG5cblx0LyoqXG5cdCAqIENhbGxiYWNrIGZ1bmN0aW9uIGFmdGVyIHNlbmRpbmcgdGhlIGZvcm0uXG5cdCAqL1xuXHRjYkFmdGVyU2VuZEZvcm0ocmVzcG9uc2UpIHtcblx0XHRpZiAoRm9ybS5jaGVja1N1Y2Nlc3MocmVzcG9uc2UpKXtcblx0XHRcdE1vZHVsZUdldFNzbC5nZXRTc2woKTtcblx0XHR9XG5cdH0sXG5cblxuXHQvKipcblx0ICogSW5pdGlhbGl6ZXMgdGhlIGZvcm0gdmFsaWRhdGlvbiBhbmQgc3VibWlzc2lvbiBsb2dpYy5cblx0ICogU2V0cyB1cCBjYWxsYmFja3MgYW5kIHZhbGlkYXRpb24gcnVsZXMgZm9yIHRoZSBmb3JtLlxuXHQgKi9cblx0aW5pdGlhbGl6ZUZvcm0oKSB7XG5cdFx0Ly8gQXNzaWduIGZvcm0tcmVsYXRlZCBzZXR0aW5ncyB0byB0aGUgRm9ybSBvYmplY3Rcblx0XHRGb3JtLiRmb3JtT2JqID0gTW9kdWxlR2V0U3NsLiRmb3JtT2JqO1xuXHRcdEZvcm0udXJsID0gYCR7Z2xvYmFsUm9vdFVybH0ke2lkVXJsfS8ke2lkVXJsfS9zYXZlYDtcblx0XHRGb3JtLnZhbGlkYXRlUnVsZXMgPSBNb2R1bGVHZXRTc2wudmFsaWRhdGVSdWxlcztcblx0XHRGb3JtLmVuYWJsZURpcnJpdHkgPSBmYWxzZTtcblx0XHRGb3JtLmNiQWZ0ZXJTZW5kRm9ybSA9IE1vZHVsZUdldFNzbC5jYkFmdGVyU2VuZEZvcm07XG5cdFx0Rm9ybS5jYkJlZm9yZVNlbmRGb3JtID0gTW9kdWxlR2V0U3NsLmNiQmVmb3JlU2VuZEZvcm07XG5cdFx0Ly8gSW5pdGlhbGl6ZSB0aGUgZm9ybSB3aXRoIHRoZSBzcGVjaWZpZWQgcGFyYW1ldGVyc1xuXHRcdEZvcm0uaW5pdGlhbGl6ZSgpO1xuXHR9LFxufTtcblxuLy8gSW5pdGlhbGl6ZSB0aGUgTW9kdWxlR2V0U3NsIGNsYXNzIHdoZW4gdGhlIGRvY3VtZW50IGlzIHJlYWR5XG4kKGRvY3VtZW50KS5yZWFkeSgoKSA9PiB7XG5cdE1vZHVsZUdldFNzbC5pbml0aWFsaXplKCk7XG59KTsiXX0=
