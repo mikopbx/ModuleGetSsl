@@ -19,6 +19,8 @@
  * If not, see <https://www.gnu.org/licenses/>.
  */
 
+use MikoPBX\Core\System\Processes;
+use MikoPBX\Core\System\Util;
 use Modules\ModuleGetSsl\Lib\AcmeHttpPort;
 use Modules\ModuleGetSsl\Lib\GetSslMain;
 
@@ -29,7 +31,14 @@ $portManager->openPort();
 try {
     $moduleMain = new GetSslMain();
     $moduleMain->createAclConf();
-    $res = $moduleMain->startGetCertSsl(false);
+
+    $getSslPath = $moduleMain->dirs['getSslPath'];
+    $confDir = $moduleMain->dirs['confDir'];
+    $shPath = Util::which('sh');
+    $tsWrapper = $moduleMain->dirs['binDir'] . '/timestampWrapper.sh';
+    Processes::mwExec("$shPath $tsWrapper $getSslPath -a -U -q -w '$confDir'");
+
+    $moduleMain->run();
 } finally {
     $portManager->closePort();
 }
