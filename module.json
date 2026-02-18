@@ -7,5 +7,10 @@
   "wiki_links": {
     "ru": {"https://wiki.mikopbx.com/module-get-ssl": "https://docs.mikopbx.com/mikopbx/modules/miko/module-get-ssl-lets-encrypt"},
     "en": {"https://wiki.mikopbx.com/module-get-ssl": "https://docs.mikopbx.com/mikopbx/v/english/modules/miko/module-get-ssl-lets-encrypt"}
+  },
+  "release_settings": {
+    "publish_release": true,
+    "changelog_enabled": true,
+    "create_github_release": true
   }
 }

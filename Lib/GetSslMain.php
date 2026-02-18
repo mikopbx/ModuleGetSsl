@@ -298,13 +298,15 @@ class GetSslMain extends Injectable
         $pid = Processes::getPidOfProcess("$getSsl $extHostname");
         if ($pid === '') {
             $confDir = $this->dirs['confDir'];
+            $shPath = Util::which('sh');
+            $tsWrapper = $this->dirs['binDir'] . '/timestampWrapper.sh';
             if($asynchronously){
-                Processes::mwExecBg("$getSsl $extHostname -w '$confDir'", $this->logFile);
+                Processes::mwExecBg("$shPath $tsWrapper $getSsl $extHostname -w '$confDir'", $this->logFile);
                 $pid = Processes::getPidOfProcess("$getSsl $extHostname");
             }else{
                 echo('starting'.PHP_EOL);
                 passthru("cat '$confDir/getssl.cfg' ");
-                passthru("$getSsl $extHostname -w '$confDir'", $this->logFile);
+                passthru("$shPath $tsWrapper $getSsl $extHostname -w '$confDir'", $this->logFile);
             }
         }
         $result->data['result'] = $this->translation->_('module_getssl_GetSSLProcessing');
@@ -339,6 +341,9 @@ class GetSslMain extends Injectable
         if (file_exists($privateKeyPath) && file_exists($certPath)) {
             $this->updateKey('WEBHTTPSPublicKey', $certPath);
             $this->updateKey('WEBHTTPSPrivateKey', $privateKeyPath);
+            $this->appendLog('SSL certificate installed into PbxSettings');
+        } else {
+            $this->appendLog('Certificate files not found, skipping PbxSettings update');
         }
     }
 
@@ -384,6 +389,15 @@ class GetSslMain extends Injectable
     }
 
     /**
+     * Appends a timestamped message to the module log file.
+     */
+    private function appendLog(string $message): void
+    {
+        $timestamp = date('Y-m-d H:i:s');
+        file_put_contents($this->logFile, "[$timestamp] $message" . PHP_EOL, FILE_APPEND);
+    }
+
+    /**
      * Generates a cron task string for automatically updating SSL certificates.
      *
      * This method checks if the `autoUpdate` setting is enabled in the module settings.
@@ -400,9 +414,9 @@ class GetSslMain extends Injectable
             && intval($this->module_settings['autoUpdate']) === 1
             && !empty($this->module_settings['domainName'])
         ) {
-            $workerPath = $this->dirs['moduleDir']. '/db/getssl';
-            $getSslPath = $this->dirs['getSslPath'];
-            return "0 1 1,15 * * $getSslPath -a -U -q -w '$workerPath' > /dev/null 2> /dev/null" . PHP_EOL;
+            $phpPath = Util::which('php');
+            $cronScript = $this->dirs['moduleDir'] . '/bin/cronRenewCert.php';
+            return "0 1 1,15 * * $phpPath -f $cronScript > /dev/null 2>&1" . PHP_EOL;
         }
         return '';
     }

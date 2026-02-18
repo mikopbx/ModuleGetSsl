@@ -12,6 +12,7 @@ const ModuleGetSsl = {
 	$checkBoxes: $('#' + idForm + ' .ui.checkbox'),
 	$disabilityFields: $('#' + idForm + ' .disability'),
 	$statusToggle: $('#module-status-toggle'),
+	$submitButton: $('#submitbutton'),
 	$moduleStatus: $('#status'),
 	$intervalId: undefined, // To manage the interval for SSL status check
 
@@ -61,6 +62,9 @@ const ModuleGetSsl = {
 				return xhr;
 			},
 			beforeSend(settings) {
+				ModuleGetSsl.$submitButton.addClass('loading disabled');
+				moduleGetSSLStatusLoopWorker.$resultBlock.show();
+				moduleGetSSLStatusLoopWorker.editor.getSession().setValue('');
 				return settings;
 			},
 			successTest: PbxApi.successTest,
@@ -69,13 +73,14 @@ const ModuleGetSsl = {
 			 * @param {object} response - The response object.
 			 */
 			onSuccess: function (response) {
-				moduleGetSSLStatusLoopWorker.editor.getSession().setValue('');
+				ModuleGetSsl.$submitButton.removeClass('loading disabled');
 			},
 			/**
-			 * Handles the failure response of the 'get-available-ldap-users' API request.
+			 * Handles the failure response of the 'get-cert' API request.
 			 * @param {object} response - The response object.
 			 */
 			onFailure: function(response) {
+				ModuleGetSsl.$submitButton.removeClass('loading disabled');
 				UserMessage.showMultiString(response.message);
 				moduleGetSSLStatusLoopWorker.$resultBlock.hide();
 			},

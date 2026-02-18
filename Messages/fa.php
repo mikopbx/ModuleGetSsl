@@ -1,7 +1,6 @@
-#!/usr/bin/php
 <?php
-
-/*
+return [
+    /*
  * MikoPBX - free phone system for small business
  * Copyright © 2017-2024 Alexey Portnov and Nikolay Beketov
  *
@@ -18,18 +17,17 @@
  * You should have received a copy of the GNU General Public License along with this program.
  * If not, see <https://www.gnu.org/licenses/>.
  */
-
-use Modules\ModuleGetSsl\Lib\AcmeHttpPort;
-use Modules\ModuleGetSsl\Lib\GetSslMain;
-
-require_once('Globals.php');
-
-$portManager = new AcmeHttpPort();
-$portManager->openPort();
-try {
-    $moduleMain = new GetSslMain();
-    $moduleMain->createAclConf();
-    $res = $moduleMain->startGetCertSsl(false);
-} finally {
-    $portManager->closePort();
-}
+    'repModuleGetSsl' => '',
+    'mo_ModuleModuleGetSsl' => '',
+    'BreadcrumbModuleGetSsl' => '',
+    'SubHeaderModuleGetSsl' => '',
+    'module_getssl_DomainNameLabel' => '',
+    'module_getssl_autoUpdateLabel' => '',
+    'module_getssl_getUpdateSSLButton' => '',
+    'module_getssl_getUpdateLogHeader' => '',
+    'module_getssl_DomainNameEmpty' => '',
+    'module_getssl_ConfigStartsGenerating' => '',
+    'module_getssl_ConfigGenerated' => '',
+    'module_getssl_GetSSLProcessing' => '',
+    'module_getssl_GetSSLProcessingTimeout' => '',
+];

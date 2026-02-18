@@ -18,6 +18,9 @@
     <div class="field hidden" id="div-result">
         <label>{{ t._('module_getssl_getUpdateLogHeader') }}</label>
         <div id="user-edit-config" class="application-code"></div>
+        <a href="{{ url('system-diagnostic/index/') }}#file=ModuleGetSsl%2Flast-result.log" target="_blank">
+            <i class="external alternate icon"></i>{{ t._('module_getssl_ViewFullLogLink') }}
+        </a>
     </div>
 
     {{ partial("partials/submitbutton",['submitBtnIconClass':'exchange icon', 'submitBtnText': t._('module_getssl_getUpdateSSLButton')]) }}

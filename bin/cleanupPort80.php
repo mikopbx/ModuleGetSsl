@@ -20,16 +20,7 @@
  */
 
 use Modules\ModuleGetSsl\Lib\AcmeHttpPort;
-use Modules\ModuleGetSsl\Lib\GetSslMain;
 
 require_once('Globals.php');
 
-$portManager = new AcmeHttpPort();
-$portManager->openPort();
-try {
-    $moduleMain = new GetSslMain();
-    $moduleMain->createAclConf();
-    $res = $moduleMain->startGetCertSsl(false);
-} finally {
-    $portManager->closePort();
-}
+AcmeHttpPort::cleanupStale();

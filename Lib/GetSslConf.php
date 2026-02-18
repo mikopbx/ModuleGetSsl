@@ -25,6 +25,7 @@ use MikoPBX\Core\System\Processes;
 use MikoPBX\Core\System\Util;
 use MikoPBX\Modules\Config\ConfigClass;
 use MikoPBX\PBXCoreREST\Lib\PBXApiResult;
+use Modules\ModuleGetSsl\Lib\AcmeHttpPort;
 use Modules\ModuleGetSsl\Models\ModuleGetSsl;
 
 class GetSslConf extends ConfigClass
@@ -65,11 +66,20 @@ class GetSslConf extends ConfigClass
         }
         switch ($action) {
             case 'GET-CERT':
-                $moduleMain = new GetSslMain($asyncChannelId);
-                $moduleMain->createAclConf();
-                $res = $moduleMain->startGetCertSsl();
-                if (!empty($asyncChannelId)) {
-                    $res = $moduleMain->checkResultAsync();
+                $portManager = new AcmeHttpPort();
+                $portManager->openPort();
+                try {
+                    $moduleMain = new GetSslMain($asyncChannelId);
+                    $moduleMain->createAclConf();
+                    $res = $moduleMain->startGetCertSsl();
+                    if (!empty($asyncChannelId)) {
+                        $res = $moduleMain->checkResultAsync();
+                    }
+                    // Install existing cert files into PbxSettings
+                    // (handles case when cert exists on disk but was cleared from settings)
+                    $moduleMain->run();
+                } finally {
+                    $portManager->closePort();
                 }
                 break;
             case 'CHECK-RESULT':
@@ -92,6 +102,7 @@ class GetSslConf extends ConfigClass
      */
     public function onAfterPbxStarted(): void
     {
+        AcmeHttpPort::cleanupStale();
         $moduleMain = new GetSslMain();
         $moduleMain->createAclConf();
     }
@@ -123,5 +134,9 @@ class GetSslConf extends ConfigClass
         if (!empty($task)) {
             $tasks[] = $task;
         }
+
+        // Watchdog: check every minute for stale port 80 state
+        $phpPath = Util::which('php');
+        $tasks[] = "* * * * * $phpPath -f $this->moduleDir/bin/cleanupPort80.php > /dev/null 2>&1" . PHP_EOL;
     }
 }

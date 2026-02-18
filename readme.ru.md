@@ -1,12 +1,35 @@
-# Шаблон модуля расширения для MikoPBX
+# ModuleGetSsl — Бесплатные SSL-сертификаты для MikoPBX
 
-_Read this in other languages:_ [_English_](./)_,_ [_Русский_](readme.ru.md)_._
+[English version](README.md)
 
-## Описание модуля расширения
+## Что делает модуль
 
-Документацию по разработке и установке собственного модуля можно найти по ссылке [https://docs.mikopbx.com](https://docs.mikopbx.com/mikopbx-development/)
+Модуль автоматически получает и обновляет бесплатные SSL-сертификаты от [Let's Encrypt](https://letsencrypt.org/) для веб-интерфейса MikoPBX. После настройки HTTPS-сертификат выпускается автоматически и продлевается по расписанию — никаких ручных действий не требуется.
 
-### Вопросы
+## Как это работает
 
-Подключайтесь к каналу для разрабочиков в telegram [@mikopbx\_dev](https://t.me/joinchat/AAPn5xSqZIpQnNnCAa3bBw)
+1. Установите модуль из маркетплейса модулей MikoPBX
+2. Укажите доменное имя в настройках модуля и нажмите сохранить
+3. Модуль запросит сертификат у Let's Encrypt, прогресс отображается в реальном времени
+4. После выпуска сертификат автоматически применяется к веб-интерфейсу MikoPBX
 
+Автоматическое продление запускается 1-го и 15-го числа каждого месяца. Если сертификат подлежит обновлению, он будет продлён автоматически.
+
+## Требования
+
+- MikoPBX версии **2024.1.114** или новее
+- Доменное имя, указывающее на публичный IP-адрес АТС (A-запись)
+- Порт **80**, доступный из интернета (необходим для HTTP-01 валидации Let's Encrypt)
+
+## Документация
+
+- [Документация на русском](https://docs.mikopbx.com/mikopbx/modules/miko/module-get-ssl-lets-encrypt)
+- [English documentation](https://docs.mikopbx.com/mikopbx/v/english/modules/miko/module-get-ssl-lets-encrypt)
+
+## Поддержка
+
+По вопросам и проблемам — [help@miko.ru](mailto:help@miko.ru) или канал разработчиков в Telegram: [@mikopbx_dev](https://t.me/joinchat/AAPn5xSqZIpQnNnCAa3bBw)
+
+## Лицензия
+
+GPL-3.0-or-later
