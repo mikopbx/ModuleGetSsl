@@ -36,14 +36,13 @@ const moduleGetSSLStatusLoopWorker = {
     timeOutHandle: 0,
 
 
-    /**.
-     * @type {EventSource}
+    /**
+     * The event type used for the system event-bus (PBX >= 2024.2.30).
      */
-    eventSource: null,
+    eventBusType: 'module-getssl-progress',
 
     /**
-     * The identifier for the PUB/SUB channel used to subscribe to module status updates.
-     * This ensures that the client is listening on the correct channel for relevant events.
+     * The identifier for the legacy PUB/SUB channel (PBX < 2024.2.30).
      */
     channelId: 'module-get-ssl-pub',
 
@@ -158,20 +157,17 @@ const moduleGetSSLStatusLoopWorker = {
         });
     },
     /**
-     * Establishes a connection to the server to start receiving real-time updates on module installation progress.
-     * Utilizes the EventSource API to listen for messages on a specified channel.
+     * Subscribes to system event-bus for real-time certificate progress updates (PBX >= 2024.2.30).
+     * Falls back to polling if EventBus is not available.
      */
     startListenPushNotifications() {
-        const lastEventIdKey = `${moduleGetSSLStatusLoopWorker.channelId}-lastEventId`;
-        let lastEventId = localStorage.getItem(lastEventIdKey);
-        const subPath = lastEventId ? `/pbxcore/api/nchan/sub/${moduleGetSSLStatusLoopWorker.channelId}?last_event_id=${lastEventId}` : `/pbxcore/api/nchan/sub/${moduleGetSSLStatusLoopWorker.channelId}`;
-        moduleGetSSLStatusLoopWorker.eventSource = new EventSource(subPath);
-
-        moduleGetSSLStatusLoopWorker.eventSource.addEventListener('message', e => {
-            const response = JSON.parse(e.data);
-            console.debug(response);
-            moduleGetSSLStatusLoopWorker.processStatusMessage(response);
-            localStorage.setItem(lastEventIdKey, e.lastEventId);
+        if (typeof EventBus === 'undefined') {
+            moduleGetSSLStatusLoopWorker.restartWorker();
+            return;
+        }
+        EventBus.subscribe(moduleGetSSLStatusLoopWorker.eventBusType, (data) => {
+            console.debug(data);
+            moduleGetSSLStatusLoopWorker.processStatusMessage(data);
         });
     },
 

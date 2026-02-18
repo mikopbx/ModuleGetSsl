@@ -71,7 +71,7 @@ class GetSslMain extends Injectable
     /**
      * Initializes module directories, checks module status and loads settings.
      */
-    public function __construct(string $asyncChannelId = 'module-get-ssl-pub')
+    public function __construct(string $asyncChannelId = '')
     {
         // Initialize directories used by the module
         $this->dirs = $this->getModuleDirs();
@@ -295,6 +295,8 @@ class GetSslMain extends Injectable
      * @param array $data pushing data
      * @return void
      */
+    private const EVENT_BUS_TYPE = 'module-getssl-progress';
+
     private function pushMessageToBrowser(string $stage, array $data): void
     {
         if (empty($this->asyncChannelId)) {
@@ -308,6 +310,18 @@ class GetSslMain extends Injectable
         ];
 
         $di = MikoPBXVersion::getDefaultDi();
+
+        // PBX >= 2024.2.30: use system event-bus WebSocket
+        if (class_exists('\MikoPBX\Common\Providers\EventBusProvider')) {
+            $di->getShared(\MikoPBX\Common\Providers\EventBusProvider::SERVICE_NAME)
+                ->publish(self::EVENT_BUS_TYPE, $message);
+            return;
+        }
+
+        // Older PBX: fallback to custom nchan channel
+        if (empty($this->asyncChannelId)) {
+            return;
+        }
         $di->get(PBXCoreRESTClientProvider::SERVICE_NAME, [
             '/pbxcore/api/nchan/pub/' . $this->asyncChannelId,
             PBXCoreRESTClientProvider::HTTP_METHOD_POST,
@@ -348,6 +362,7 @@ class GetSslMain extends Injectable
             . " --issue -d " . escapeshellarg($extHostname)
             . " --home " . escapeshellarg($acmeHome)
             . " --config-home " . escapeshellarg($acmeConfigHome)
+            . " --server letsencrypt"
             . " --force"
             . " --reloadcmd " . escapeshellarg("$binDir/reloadCmd.php");
 
@@ -385,7 +400,7 @@ class GetSslMain extends Injectable
             $pid = $this->getAcmeProcessPid();
         } else {
             echo('starting' . PHP_EOL);
-            passthru("$shPath $tsWrapper $cmd", $this->logFile);
+            passthru("$shPath $tsWrapper $cmd", $retCode);
         }
 
         $result->data['result'] = $this->translation->_('module_getssl_GetSSLProcessing');

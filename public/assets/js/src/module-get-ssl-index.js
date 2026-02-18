@@ -116,40 +116,67 @@ const ModuleGetSsl = {
 
 		// Render fields
 		provider.fields.forEach(field => {
-			const savedValue = savedCreds[field.var] || '';
-			const inputType = field.type === 'password' ? 'password' : 'text';
+			const hasSaved = Boolean(savedCreds[field.var]);
+			const displayValue = hasSaved ? '••••••••' : '';
+			const maskedAttr = hasSaved ? 'data-masked="true"' : '';
 			const html = `
 				<div class="field">
 					<label>${field.label}</label>
-					<input type="${inputType}"
+					<input type="password"
 						   class="dns-cred-input"
 						   data-var="${field.var}"
-						   value="${ModuleGetSsl.escapeHtml(savedValue)}"
+						   ${maskedAttr}
+						   value="${ModuleGetSsl.escapeHtml(displayValue)}"
 						   placeholder="${field.label}">
 				</div>`;
 			$container.append(html);
+		});
+		// On focus: clear mask so user can enter new value
+		$container.on('focus', '.dns-cred-input[data-masked]', function () {
+			$(this).val('').removeAttr('data-masked');
+		});
+		// Clear error highlight when user starts typing
+		$container.on('input', '.dns-cred-input', function () {
+			$(this).closest('.field').removeClass('error');
 		});
 	},
 
 	/**
 	 * Collect DNS credential field values into base64 JSON and write to hidden input.
+	 * Masked fields (unchanged) are restored from the previously saved credentials.
 	 */
 	collectDnsCredentials() {
 		const challengeType = ModuleGetSsl.$challengeType.dropdown('get value');
 		if (challengeType !== 'dns') {
 			return;
 		}
+		// Decode currently stored credentials (source of truth for masked fields)
+		let savedCreds = {};
+		const encodedVal = ModuleGetSsl.$dnsCredentialsInput.val();
+		if (encodedVal) {
+			try {
+				savedCreds = JSON.parse(atob(encodedVal));
+			} catch (e) {
+				// ignore
+			}
+		}
 		const creds = {};
 		$('.dns-cred-input').each(function () {
 			const varName = $(this).data('var');
-			const val = $(this).val();
-			if (varName && val) {
-				creds[varName] = val;
+			if (!varName) return;
+			if ($(this).is('[data-masked]')) {
+				// User didn't change this field — keep stored value
+				if (savedCreds[varName]) {
+					creds[varName] = savedCreds[varName];
+				}
+			} else {
+				const val = $(this).val();
+				if (val) {
+					creds[varName] = val;
+				}
 			}
 		});
-		const json = JSON.stringify(creds);
-		const encoded = btoa(json);
-		ModuleGetSsl.$dnsCredentialsInput.val(encoded);
+		ModuleGetSsl.$dnsCredentialsInput.val(btoa(JSON.stringify(creds)));
 	},
 
 	/**
@@ -198,7 +225,6 @@ const ModuleGetSsl = {
 			onFailure: function(response) {
 				ModuleGetSsl.$submitButton.removeClass('loading disabled');
 				UserMessage.showMultiString(response.message);
-				moduleGetSSLStatusLoopWorker.$resultBlock.hide();
 			},
 		})
 	},
@@ -217,11 +243,44 @@ const ModuleGetSsl = {
 	},
 
 	/**
+	 * Validate DNS provider and credentials when DNS-01 is selected.
+	 * Returns true if valid, false otherwise.
+	 */
+	validateDnsFields() {
+		if (ModuleGetSsl.$challengeType.dropdown('get value') !== 'dns') {
+			return true;
+		}
+		if (!ModuleGetSsl.$dnsProvider.dropdown('get value')) {
+			UserMessage.showError(globalTranslate.module_getssl_DnsProviderEmpty);
+			return false;
+		}
+		let hasEmpty = false;
+		$('.dns-cred-input').each(function () {
+			const $field = $(this).closest('.field');
+			const isMasked = $(this).is('[data-masked]');
+			if (!isMasked && !$(this).val().trim()) {
+				$field.addClass('error');
+				hasEmpty = true;
+			} else {
+				$field.removeClass('error');
+			}
+		});
+		if (hasEmpty) {
+			UserMessage.showError(globalTranslate.module_getssl_DnsCredentialsEmpty);
+			return false;
+		}
+		return true;
+	},
+
+	/**
 	 * Callback before sending the form.
 	 * @param {Object} settings - Ajax request settings.
 	 * @returns {Object} The modified Ajax request settings.
 	 */
 	cbBeforeSendForm(settings) {
+		if (!ModuleGetSsl.validateDnsFields()) {
+			return false;
+		}
 		const result = settings;
 		// Collect DNS credentials into hidden field before form submission
 		ModuleGetSsl.collectDnsCredentials();
