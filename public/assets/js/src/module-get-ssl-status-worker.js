@@ -59,11 +59,33 @@ const moduleGetSSLStatusLoopWorker = {
      */
     initialize(){
         moduleGetSSLStatusLoopWorker.initializeAce();
+        moduleGetSSLStatusLoopWorker.loadLastLog();
         if (moduleGetSSLStatusLoopWorker.versionCompare(globalPBXVersion,'2024.2.30')>0){
             moduleGetSSLStatusLoopWorker.startListenPushNotifications();
         } else {
             moduleGetSSLStatusLoopWorker.restartWorker();
         }
+    },
+
+    /**
+     * Loads the last log file content into the ACE editor on page load.
+     */
+    loadLastLog() {
+        $.api({
+            url: `${Config.pbxUrl}/pbxcore/api/modules/ModuleGetSsl/check-result`,
+            on: 'now',
+            method: 'GET',
+            successTest: PbxApi.successTest,
+            onSuccess: function (response) {
+                if (response.data.result && response.data.result.length > 0) {
+                    moduleGetSSLStatusLoopWorker.$resultBlock.show();
+                    moduleGetSSLStatusLoopWorker.editor.getSession().setValue(response.data.result);
+                }
+            },
+            onFailure: function() {
+                // Silently ignore - no log to show
+            },
+        })
     },
 
     /**

@@ -20,4 +20,5 @@ return [
     'module_getssl_ConfigGenerated' => 'Configuration files created...',
     'module_getssl_GetSSLProcessing' => 'Requesting data from Lets Encrypt...',
     'module_getssl_GetSSLProcessingTimeout' => 'Error, Lets Encrypt service did not return a response within 2 minutes',
+    'module_getssl_ViewFullLogLink' => 'View full log in system diagnostic',
 ];

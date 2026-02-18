@@ -75,6 +75,9 @@ class GetSslConf extends ConfigClass
                     if (!empty($asyncChannelId)) {
                         $res = $moduleMain->checkResultAsync();
                     }
+                    // Install existing cert files into PbxSettings
+                    // (handles case when cert exists on disk but was cleared from settings)
+                    $moduleMain->run();
                 } finally {
                     $portManager->closePort();
                 }

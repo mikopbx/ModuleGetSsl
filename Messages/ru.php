@@ -31,4 +31,5 @@ return [
     'module_getssl_ConfigGenerated' => 'Конфигурационные файлы созданы...',
     'module_getssl_GetSSLProcessing' => 'Выполняется запрос данных в Lets Encrypt...',
     'module_getssl_GetSSLProcessingTimeout' => 'Ошибка, сервис Lets Encrypt не вернул ответа в течение 2 минут',
+    'module_getssl_ViewFullLogLink' => 'Смотреть полный лог в системной диагностике',
 ];

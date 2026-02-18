@@ -341,6 +341,9 @@ class GetSslMain extends Injectable
         if (file_exists($privateKeyPath) && file_exists($certPath)) {
             $this->updateKey('WEBHTTPSPublicKey', $certPath);
             $this->updateKey('WEBHTTPSPrivateKey', $privateKeyPath);
+            $this->appendLog('SSL certificate installed into PbxSettings');
+        } else {
+            $this->appendLog('Certificate files not found, skipping PbxSettings update');
         }
     }
 
@@ -383,6 +386,15 @@ class GetSslMain extends Injectable
             $dbRec->value = $key;
             $dbRec->save();
         }
+    }
+
+    /**
+     * Appends a timestamped message to the module log file.
+     */
+    private function appendLog(string $message): void
+    {
+        $timestamp = date('Y-m-d H:i:s');
+        file_put_contents($this->logFile, "[$timestamp] $message" . PHP_EOL, FILE_APPEND);
     }
 
     /**

@@ -21,6 +21,7 @@
 namespace Modules\ModuleGetSsl\Lib;
 
 use MikoPBX\Common\Models\PbxSettings;
+use MikoPBX\Core\System\Directories;
 use MikoPBX\Core\System\Processes;
 use MikoPBX\Core\System\System;
 use MikoPBX\Core\System\Util;
@@ -38,6 +39,14 @@ class AcmeHttpPort
     private const NGINX_ACME_CONF = '/etc/nginx/mikopbx/modules_servers/ModuleGetSsl_acme80.conf';
     private const MAX_OPEN_SECONDS = 300;
 
+    private string $logFile;
+
+    public function __construct()
+    {
+        $logDir = Directories::getDir(Directories::CORE_LOGS_DIR);
+        $this->logFile = "$logDir/ModuleGetSsl/last-result.log";
+    }
+
     /**
      * Opens port 80 for ACME HTTP-01 validation.
      *
@@ -48,6 +57,7 @@ class AcmeHttpPort
     public function openPort(): bool
     {
         if ($this->isAlreadyOpen()) {
+            $this->log('Port 80 already open, skipping');
             return true;
         }
 
@@ -59,12 +69,20 @@ class AcmeHttpPort
         $domainName = $this->getDomainName();
         if (empty($domainName)) {
             unlink(self::LOCK_FILE);
+            $this->log('Port 80 open skipped: domain name is empty');
             return false;
         }
 
         $this->createNginxConf($domainName);
         $this->reloadNginx();
-        $this->addFirewallRules();
+
+        $firewallManaged = $this->isFirewallManaged();
+        if ($firewallManaged) {
+            $this->addFirewallRules();
+            $this->log("Port 80 opened for $domainName (nginx + iptables)");
+        } else {
+            $this->log("Port 80 opened for $domainName (nginx only, firewall not managed)");
+        }
 
         return true;
     }
@@ -85,6 +103,8 @@ class AcmeHttpPort
         if (file_exists(self::LOCK_FILE)) {
             unlink(self::LOCK_FILE);
         }
+
+        $this->log('Port 80 closed');
     }
 
     /**
@@ -237,5 +257,14 @@ NGINX;
             return false;
         }
         return System::canManageFirewall();
+    }
+
+    /**
+     * Appends a timestamped message to the module log file.
+     */
+    private function log(string $message): void
+    {
+        $timestamp = date('Y-m-d H:i:s');
+        file_put_contents($this->logFile, "[$timestamp] $message" . PHP_EOL, FILE_APPEND);
     }
 }
