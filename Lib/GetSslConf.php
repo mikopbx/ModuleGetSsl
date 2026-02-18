@@ -66,20 +66,24 @@ class GetSslConf extends ConfigClass
         }
         switch ($action) {
             case 'GET-CERT':
-                $portManager = new AcmeHttpPort();
-                $portManager->openPort();
+                $moduleMain = new GetSslMain($asyncChannelId);
+                $usePort80 = !$moduleMain->isDns01();
+                $portManager = null;
+                if ($usePort80) {
+                    $portManager = new AcmeHttpPort();
+                    $portManager->openPort();
+                }
                 try {
-                    $moduleMain = new GetSslMain($asyncChannelId);
-                    $moduleMain->createAclConf();
+                    $moduleMain->prepareAcmeEnvironment();
                     $res = $moduleMain->startGetCertSsl();
                     if (!empty($asyncChannelId)) {
                         $res = $moduleMain->checkResultAsync();
                     }
-                    // Install existing cert files into PbxSettings
-                    // (handles case when cert exists on disk but was cleared from settings)
                     $moduleMain->run();
                 } finally {
-                    $portManager->closePort();
+                    if ($portManager !== null) {
+                        $portManager->closePort();
+                    }
                 }
                 break;
             case 'CHECK-RESULT':
@@ -104,7 +108,7 @@ class GetSslConf extends ConfigClass
     {
         AcmeHttpPort::cleanupStale();
         $moduleMain = new GetSslMain();
-        $moduleMain->createAclConf();
+        $moduleMain->prepareAcmeEnvironment();
     }
 
     /**

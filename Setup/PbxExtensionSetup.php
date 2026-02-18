@@ -48,7 +48,7 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
         $rm = Util::which('rm');
         $busyBoxPath = Util::which('busybox');
         Processes::mwExec("$busyBoxPath mount -o remount,rw /offload 2> /dev/null");
-        Processes::mwExec("$rm -rf /usr/share/getssl /usr/bin/getssl /usr/www/sites/.well-known");
+        Processes::mwExec("$rm -rf /usr/share/getssl /usr/bin/getssl /usr/bin/acme.sh /usr/www/sites/.well-known");
         Processes::mwExec("$busyBoxPath mount -o remount,ro /offload 2> /dev/null");
         return parent::unInstallFiles($keepSettings);
     }
@@ -72,6 +72,10 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 $settings->autoUpdate = '1';
                 $res = LanInterfaces::findFirst("internet = '1'")->toArray();
                 $settings->domainName = $res['exthostname'] ?? '';
+            }
+            // Migration: ensure challengeType has a default
+            if (empty($settings->challengeType)) {
+                $settings->challengeType = 'http';
             }
             $result = $settings->save();
         }

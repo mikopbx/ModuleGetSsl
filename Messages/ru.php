@@ -32,4 +32,9 @@ return [
     'module_getssl_GetSSLProcessing' => 'Выполняется запрос данных в Lets Encrypt...',
     'module_getssl_GetSSLProcessingTimeout' => 'Ошибка, сервис Lets Encrypt не вернул ответа в течение 2 минут',
     'module_getssl_ViewFullLogLink' => 'Смотреть полный лог в системной диагностике',
+    'module_getssl_ChallengeTypeLabel' => 'Способ проверки',
+    'module_getssl_HttpChallengeInfo' => 'HTTP-01: сервер должен быть доступен из интернета на порту 80. Порт будет открыт временно на время проверки.',
+    'module_getssl_DnsProviderLabel' => 'DNS провайдер',
+    'module_getssl_DnsProviderEmpty' => 'Выберите DNS провайдера для проверки через DNS-01',
+    'module_getssl_DnsChallengeInfo' => 'DNS-01: сертификат выпускается через API вашего DNS-провайдера. Порт 80 не нужен. Поддерживаются wildcard-сертификаты (*.domain.com).',
 ];
