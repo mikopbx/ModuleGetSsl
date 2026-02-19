@@ -388,7 +388,9 @@ class GetSslMain extends Injectable
             $cmd = $envExports . $cmd;
         } else {
             // HTTP-01 challenge via webroot
-            $webroot = $this->dirs['challengeDir'];
+            // acme.sh appends /.well-known/acme-challenge/<token> to webroot,
+            // so pass the document root (confDir), not the challenge dir
+            $webroot = $this->dirs['confDir'];
             $cmd .= " --webroot " . escapeshellarg($webroot);
         }
 
