@@ -24,12 +24,19 @@ use Modules\ModuleGetSsl\Lib\GetSslMain;
 
 require_once('Globals.php');
 
-$portManager = new AcmeHttpPort();
-$portManager->openPort();
+$moduleMain = new GetSslMain();
+$usePort80 = !$moduleMain->isDns01();
+
+$portManager = null;
+if ($usePort80) {
+    $portManager = new AcmeHttpPort();
+    $portManager->openPort();
+}
 try {
-    $moduleMain = new GetSslMain();
-    $moduleMain->createAclConf();
+    $moduleMain->prepareAcmeEnvironment();
     $res = $moduleMain->startGetCertSsl(false);
 } finally {
-    $portManager->closePort();
+    if ($portManager !== null) {
+        $portManager->closePort();
+    }
 }

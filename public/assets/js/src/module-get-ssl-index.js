@@ -1,4 +1,4 @@
-/* global globalRootUrl, globalTranslate, Form, Config, PbxApi */
+/* global globalRootUrl, globalTranslate, Form, Config, PbxApi, dnsProvidersMeta */
 
 // Constants related to the form and module
 const idUrl     = 'module-get-ssl';              // API endpoint for SSL module
@@ -14,7 +14,12 @@ const ModuleGetSsl = {
 	$statusToggle: $('#module-status-toggle'),
 	$submitButton: $('#submitbutton'),
 	$moduleStatus: $('#status'),
-	$intervalId: undefined, // To manage the interval for SSL status check
+	$challengeType: $('#challengeType'),
+	$dnsProvider: $('#dnsProvider'),
+	$httpChallengeInfo: $('#http-challenge-info'),
+	$dnsSettingsBlock: $('#dns-settings-block'),
+	$dnsCredentialsFields: $('#dns-credentials-fields'),
+	$dnsCredentialsInput: $('input[name="dnsCredentials"]'),
 
 	// Validation rules for the form
 	validateRules: {
@@ -31,11 +36,19 @@ const ModuleGetSsl = {
 
 	/**
 	 * Initialize the module, bind event listeners, and setup the form.
-	 * This function is called when the document is ready.
 	 */
 	initialize() {
 		// Initialize Semantic UI checkboxes
 		this.$checkBoxes.checkbox();
+
+		// Initialize dropdowns
+		this.$challengeType.dropdown({
+			onChange: ModuleGetSsl.onChangeChallengeType,
+		});
+		this.$dnsProvider.dropdown({
+			fullTextSearch: true,
+			onChange: ModuleGetSsl.onChangeDnsProvider,
+		});
 
 		// Check and set module status on load and when the status changes
 		this.checkStatusToggle();
@@ -45,11 +58,149 @@ const ModuleGetSsl = {
 		this.initializeForm();
 
 		moduleGetSSLStatusLoopWorker.$resultBlock.hide();
+
+		// Restore saved state
+		const currentChallenge = this.$challengeType.dropdown('get value') || 'http';
+		this.onChangeChallengeType(currentChallenge);
+		this.restoreSavedCredentials();
+	},
+
+	/**
+	 * Handle challenge type change: show/hide relevant sections.
+	 * @param {string} value - 'http' or 'dns'
+	 */
+	onChangeChallengeType(value) {
+		if (value === 'dns') {
+			ModuleGetSsl.$httpChallengeInfo.hide();
+			ModuleGetSsl.$dnsSettingsBlock.show();
+			// Trigger provider change to render credential fields
+			const currentProvider = ModuleGetSsl.$dnsProvider.dropdown('get value');
+			if (currentProvider) {
+				ModuleGetSsl.onChangeDnsProvider(currentProvider);
+			}
+		} else {
+			ModuleGetSsl.$httpChallengeInfo.show();
+			ModuleGetSsl.$dnsSettingsBlock.hide();
+		}
+	},
+
+	/**
+	 * Handle DNS provider change: dynamically render credential fields.
+	 * @param {string} value - provider ID (e.g. 'dns_cf')
+	 */
+	onChangeDnsProvider(value) {
+		const $container = ModuleGetSsl.$dnsCredentialsFields;
+		$container.empty();
+
+		if (!value || typeof dnsProvidersMeta === 'undefined') {
+			return;
+		}
+
+		// Find provider metadata
+		const provider = dnsProvidersMeta.find(p => p.id === value);
+		if (!provider || !provider.fields) {
+			return;
+		}
+
+		// Decode existing saved credentials for pre-filling
+		let savedCreds = {};
+		const encodedVal = ModuleGetSsl.$dnsCredentialsInput.val();
+		if (encodedVal) {
+			try {
+				const decoded = atob(encodedVal);
+				savedCreds = JSON.parse(decoded);
+			} catch (e) {
+				// ignore decode errors
+			}
+		}
+
+		// Render fields
+		provider.fields.forEach(field => {
+			const hasSaved = Boolean(savedCreds[field.var]);
+			const displayValue = hasSaved ? '••••••••' : '';
+			const maskedAttr = hasSaved ? 'data-masked="true"' : '';
+			const html = `
+				<div class="field">
+					<label>${field.label}</label>
+					<input type="password"
+						   class="dns-cred-input"
+						   data-var="${field.var}"
+						   ${maskedAttr}
+						   value="${ModuleGetSsl.escapeHtml(displayValue)}"
+						   placeholder="${field.label}">
+				</div>`;
+			$container.append(html);
+		});
+		// On focus: clear mask so user can enter new value
+		$container.on('focus', '.dns-cred-input[data-masked]', function () {
+			$(this).val('').removeAttr('data-masked');
+		});
+		// Clear error highlight when user starts typing
+		$container.on('input', '.dns-cred-input', function () {
+			$(this).closest('.field').removeClass('error');
+		});
+	},
+
+	/**
+	 * Collect DNS credential field values into base64 JSON and write to hidden input.
+	 * Masked fields (unchanged) are restored from the previously saved credentials.
+	 */
+	collectDnsCredentials() {
+		const challengeType = ModuleGetSsl.$challengeType.dropdown('get value');
+		if (challengeType !== 'dns') {
+			return;
+		}
+		// Decode currently stored credentials (source of truth for masked fields)
+		let savedCreds = {};
+		const encodedVal = ModuleGetSsl.$dnsCredentialsInput.val();
+		if (encodedVal) {
+			try {
+				savedCreds = JSON.parse(atob(encodedVal));
+			} catch (e) {
+				// ignore
+			}
+		}
+		const creds = {};
+		$('.dns-cred-input').each(function () {
+			const varName = $(this).data('var');
+			if (!varName) return;
+			if ($(this).is('[data-masked]')) {
+				// User didn't change this field — keep stored value
+				if (savedCreds[varName]) {
+					creds[varName] = savedCreds[varName];
+				}
+			} else {
+				const val = $(this).val();
+				if (val) {
+					creds[varName] = val;
+				}
+			}
+		});
+		ModuleGetSsl.$dnsCredentialsInput.val(btoa(JSON.stringify(creds)));
+	},
+
+	/**
+	 * Restore saved credentials into the DNS provider fields on page load.
+	 */
+	restoreSavedCredentials() {
+		const currentProvider = ModuleGetSsl.$dnsProvider.dropdown('get value');
+		if (currentProvider) {
+			ModuleGetSsl.onChangeDnsProvider(currentProvider);
+		}
+	},
+
+	/**
+	 * Escape HTML special characters for safe insertion into attributes.
+	 * @param {string} text
+	 * @returns {string}
+	 */
+	escapeHtml(text) {
+		const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+		return String(text).replace(/[&<>"']/g, m => map[m]);
 	},
 
 	/**
 	 * Request an SSL certificate by calling the server-side API.
-	 * This method sends a GET request to initiate the SSL process.
 	 */
 	getSsl() {
 		$.api({
@@ -64,43 +215,63 @@ const ModuleGetSsl = {
 			beforeSend(settings) {
 				ModuleGetSsl.$submitButton.addClass('loading disabled');
 				moduleGetSSLStatusLoopWorker.$resultBlock.show();
-				moduleGetSSLStatusLoopWorker.editor.getSession().setValue('');
+				moduleGetSSLStatusLoopWorker.editor.getSession().setValue(
+				globalTranslate.module_getssl_GetSSLProcessing + '\n'
+			);
 				return settings;
 			},
 			successTest: PbxApi.successTest,
-			/**
-			 * Handles the successful response of the 'get-cert' API request.
-			 * @param {object} response - The response object.
-			 */
 			onSuccess: function (response) {
 				ModuleGetSsl.$submitButton.removeClass('loading disabled');
 			},
-			/**
-			 * Handles the failure response of the 'get-cert' API request.
-			 * @param {object} response - The response object.
-			 */
 			onFailure: function(response) {
 				ModuleGetSsl.$submitButton.removeClass('loading disabled');
 				UserMessage.showMultiString(response.message);
-				moduleGetSSLStatusLoopWorker.$resultBlock.hide();
 			},
 		})
 	},
 
 	/**
 	 * Toggles the form fields and status visibility based on the module's status.
-	 * Enables or disables form fields depending on whether the module is active.
 	 */
 	checkStatusToggle() {
-		// If the module status is active, enable form fields and show status
 		if (ModuleGetSsl.$statusToggle.checkbox('is checked')) {
 			ModuleGetSsl.$disabilityFields.removeClass('disabled');
 			ModuleGetSsl.$moduleStatus.show();
 		} else {
-			// If the module status is inactive, disable form fields and hide status
 			ModuleGetSsl.$disabilityFields.addClass('disabled');
 			ModuleGetSsl.$moduleStatus.hide();
 		}
+	},
+
+	/**
+	 * Validate DNS provider and credentials when DNS-01 is selected.
+	 * Returns true if valid, false otherwise.
+	 */
+	validateDnsFields() {
+		if (ModuleGetSsl.$challengeType.dropdown('get value') !== 'dns') {
+			return true;
+		}
+		if (!ModuleGetSsl.$dnsProvider.dropdown('get value')) {
+			UserMessage.showError(globalTranslate.module_getssl_DnsProviderEmpty);
+			return false;
+		}
+		let hasEmpty = false;
+		$('.dns-cred-input').each(function () {
+			const $field = $(this).closest('.field');
+			const isMasked = $(this).is('[data-masked]');
+			if (!isMasked && !$(this).val().trim()) {
+				$field.addClass('error');
+				hasEmpty = true;
+			} else {
+				$field.removeClass('error');
+			}
+		});
+		if (hasEmpty) {
+			UserMessage.showError(globalTranslate.module_getssl_DnsCredentialsEmpty);
+			return false;
+		}
+		return true;
 	},
 
 	/**
@@ -109,7 +280,12 @@ const ModuleGetSsl = {
 	 * @returns {Object} The modified Ajax request settings.
 	 */
 	cbBeforeSendForm(settings) {
+		if (!ModuleGetSsl.validateDnsFields()) {
+			return false;
+		}
 		const result = settings;
+		// Collect DNS credentials into hidden field before form submission
+		ModuleGetSsl.collectDnsCredentials();
 		result.data = ModuleGetSsl.$formObj.form('get values');
 		return result;
 	},
@@ -126,17 +302,14 @@ const ModuleGetSsl = {
 
 	/**
 	 * Initializes the form validation and submission logic.
-	 * Sets up callbacks and validation rules for the form.
 	 */
 	initializeForm() {
-		// Assign form-related settings to the Form object
 		Form.$formObj = ModuleGetSsl.$formObj;
 		Form.url = `${globalRootUrl}${idUrl}/${idUrl}/save`;
 		Form.validateRules = ModuleGetSsl.validateRules;
 		Form.enableDirrity = false;
 		Form.cbAfterSendForm = ModuleGetSsl.cbAfterSendForm;
 		Form.cbBeforeSendForm = ModuleGetSsl.cbBeforeSendForm;
-		// Initialize the form with the specified parameters
 		Form.initialize();
 	},
 };

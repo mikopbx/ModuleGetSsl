@@ -18,10 +18,10 @@
  */
 
 return [
-    'repModuleGetSsl'         => 'Lets Encrypt - %repesent%',
-    'mo_ModuleModuleGetSsl'   => 'Lets Encrypt Get ssl',
-    'BreadcrumbModuleGetSsl'  => 'Lets Encrypt Get ssl',
-    'SubHeaderModuleGetSsl'   => 'SSL сертификаты для HTTPS',
+    'repModuleGetSsl'         => 'Auto SSL - %repesent%',
+    'mo_ModuleModuleGetSsl'   => 'Auto SSL',
+    'BreadcrumbModuleGetSsl'  => 'Auto SSL',
+    'SubHeaderModuleGetSsl'   => 'Автоматический выпуск и продление SSL сертификатов',
     'module_getssl_DomainNameLabel' => 'Имя домена без http и https, только название',
     'module_getssl_autoUpdateLabel' => 'Обновлять сертификат автоматически',
     'module_getssl_getUpdateSSLButton' => 'Получить/обновить SSL сертификат',
@@ -32,4 +32,10 @@ return [
     'module_getssl_GetSSLProcessing' => 'Выполняется запрос данных в Lets Encrypt...',
     'module_getssl_GetSSLProcessingTimeout' => 'Ошибка, сервис Lets Encrypt не вернул ответа в течение 2 минут',
     'module_getssl_ViewFullLogLink' => 'Смотреть полный лог в системной диагностике',
+    'module_getssl_ChallengeTypeLabel' => 'Способ проверки',
+    'module_getssl_HttpChallengeInfo' => 'HTTP-01: сервер должен быть доступен из интернета на порту 80. Порт будет открыт временно на время проверки.',
+    'module_getssl_DnsProviderLabel' => 'DNS провайдер',
+    'module_getssl_DnsProviderEmpty' => 'Выберите DNS провайдера для проверки через DNS-01',
+    'module_getssl_DnsCredentialsEmpty' => 'Заполните все обязательные поля учётных данных DNS-провайдера',
+    'module_getssl_DnsChallengeInfo' => 'DNS-01: сертификат выпускается через API вашего DNS-провайдера. Порт 80 не нужен. Поддерживаются wildcard-сертификаты (*.domain.com).',
 ];

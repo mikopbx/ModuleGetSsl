@@ -45,6 +45,27 @@ class ModuleGetSsl extends ModulesModelsBase
      */
     public $autoUpdate;
 
+    /**
+     * Challenge type: 'http' for HTTP-01, 'dns' for DNS-01
+     *
+     * @Column(type="string", default="http", nullable=true)
+     */
+    public $challengeType;
+
+    /**
+     * DNS provider identifier for DNS-01 (e.g. 'dns_cf', 'dns_aws')
+     *
+     * @Column(type="string", nullable=true)
+     */
+    public $dnsProvider;
+
+    /**
+     * DNS provider credentials as base64-encoded JSON
+     *
+     * @Column(type="string", nullable=true)
+     */
+    public $dnsCredentials;
+
     public function initialize(): void
     {
         $this->setSource('m_ModuleGetSsl');

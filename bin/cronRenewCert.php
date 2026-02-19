@@ -26,19 +26,39 @@ use Modules\ModuleGetSsl\Lib\GetSslMain;
 
 require_once('Globals.php');
 
-$portManager = new AcmeHttpPort();
-$portManager->openPort();
-try {
-    $moduleMain = new GetSslMain();
-    $moduleMain->createAclConf();
+$moduleMain = new GetSslMain();
+$usePort80 = !$moduleMain->isDns01();
 
-    $getSslPath = $moduleMain->dirs['getSslPath'];
-    $confDir = $moduleMain->dirs['confDir'];
+$portManager = null;
+if ($usePort80) {
+    $portManager = new AcmeHttpPort();
+    $portManager->openPort();
+}
+try {
+    $moduleMain->prepareAcmeEnvironment();
+
+    $acmeHome = $moduleMain->dirs['acmeHome'];
+    $acmeConfigHome = $moduleMain->dirs['acmeConfigHome'];
     $shPath = Util::which('sh');
     $tsWrapper = $moduleMain->dirs['binDir'] . '/timestampWrapper.sh';
-    Processes::mwExec("$shPath $tsWrapper $getSslPath -a -U -q -w '$confDir'");
+
+    // Build acme.sh cron renewal command
+    $cmd = GetSslMain::ACME_SH_BIN
+        . ' --cron'
+        . ' --home ' . escapeshellarg($acmeHome)
+        . ' --config-home ' . escapeshellarg($acmeConfigHome);
+
+    // For DNS-01: prepend env exports
+    if ($moduleMain->isDns01()) {
+        $envExports = $moduleMain->buildDnsCredentialEnvString();
+        $cmd = $envExports . $cmd;
+    }
+
+    Processes::mwExec("$shPath $tsWrapper $cmd");
 
     $moduleMain->run();
 } finally {
-    $portManager->closePort();
+    if ($portManager !== null) {
+        $portManager->closePort();
+    }
 }

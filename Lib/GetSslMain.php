@@ -35,10 +35,14 @@ use Phalcon\Di\Injectable;
 /**
  * Main class for managing SSL certificates via the GetSSL module.
  *
+ * Supports both acme.sh (primary) and legacy getssl ACME clients.
+ * Supports HTTP-01 and DNS-01 challenge types.
+ *
  * @property \MikoPBX\Common\Providers\TranslationProvider translation
  */
 class GetSslMain extends Injectable
 {
+    public const ACME_SH_BIN = '/usr/bin/acme.sh';
     public const GET_SSL_BIN = '/usr/bin/getssl';
     public const NS_LOOKUP_BIN = '/usr/bin/nslookup';
     private const STAGE_1_GENERATE_CONFIG = 'STAGE_1_GENERATE_CONFIG';
@@ -46,7 +50,6 @@ class GetSslMain extends Injectable
     private const STAGE_3_PARSE_RESPONSE = 'STAGE_3_PARSE_RESPONSE';
     private const STAGE_4_FINAL_RESULT = 'STAGE_4_FINAL_RESULT';
 
-    // Pub/sub nchan channel id to send a response to backend
     /**
      * @var array Directories used by the module
      */
@@ -68,7 +71,7 @@ class GetSslMain extends Injectable
     /**
      * Initializes module directories, checks module status and loads settings.
      */
-    public function __construct(string $asyncChannelId = 'module-get-ssl-pub')
+    public function __construct(string $asyncChannelId = '')
     {
         // Initialize directories used by the module
         $this->dirs = $this->getModuleDirs();
@@ -118,7 +121,7 @@ class GetSslMain extends Injectable
         $pidDir = "/var/run/custom_modules/{$this->moduleUniqueID}";
         Util::mwMkdir($pidDir);
 
-        // Confdir
+        // Legacy getssl confDir
         $confDir = $moduleDir . '/db/getssl';
         Util::mwMkdir($confDir);
 
@@ -126,9 +129,17 @@ class GetSslMain extends Injectable
         $wellKnownDir = $confDir . '/.well-known';
         Util::mwMkdir($wellKnownDir);
 
-        // Chalenge dir
+        // Challenge dir
         $challengeDir = $wellKnownDir . '/acme-challenge';
         Util::mwMkdir($challengeDir);
+
+        // acme.sh home (where the script lives)
+        $acmeHome = $moduleDir . '/bin/acme';
+        Util::mwMkdir($acmeHome);
+
+        // acme.sh config home (where certs/accounts are stored)
+        $acmeConfigHome = $moduleDir . '/db/acme';
+        Util::mwMkdir($acmeConfigHome);
 
         return [
             'logDir' => $logDir,
@@ -137,8 +148,48 @@ class GetSslMain extends Injectable
             'moduleDir' => $moduleDir,
             'confDir' => $confDir,
             'wellKnownDir' => $wellKnownDir,
-            'challengeDir' => $challengeDir
+            'challengeDir' => $challengeDir,
+            'acmeHome' => $acmeHome,
+            'acmeConfigHome' => $acmeConfigHome,
         ];
+    }
+
+    /**
+     * Checks if current challenge type is DNS-01.
+     */
+    public function isDns01(): bool
+    {
+        return ($this->module_settings['challengeType'] ?? 'http') === 'dns';
+    }
+
+    /**
+     * Decodes DNS credentials from base64 JSON and builds an export string.
+     *
+     * @return string Shell export commands, e.g. "export CF_Token='xxx'; export CF_Account_ID='yyy'; "
+     */
+    public function buildDnsCredentialEnvString(): string
+    {
+        $encoded = $this->module_settings['dnsCredentials'] ?? '';
+        if (empty($encoded)) {
+            return '';
+        }
+        $json = base64_decode($encoded, true);
+        if ($json === false) {
+            return '';
+        }
+        $credentials = json_decode($json, true);
+        if (!is_array($credentials)) {
+            return '';
+        }
+        $exports = '';
+        foreach ($credentials as $varName => $value) {
+            // Sanitize: only allow alphanumeric and underscore in var names
+            $safeVar = preg_replace('/[^A-Za-z0-9_]/', '', $varName);
+            // Escape single quotes in value
+            $safeVal = str_replace("'", "'\\''", $value);
+            $exports .= "export {$safeVar}='{$safeVal}'; ";
+        }
+        return $exports;
     }
 
     /**
@@ -149,25 +200,23 @@ class GetSslMain extends Injectable
     public function checkResultAsync(): PBXApiResult
     {
         $result = new PBXApiResult();
-        $getSsl = $this->dirs['getSslPath'];
-        $timeout = 120; // Maximum wait time in seconds
-        $interval = 1;  // Check an interval in seconds
-        $elapsedTime = 0; // Track the elapsed time
+        // For DNS-01, use longer timeout (DNS propagation takes time)
+        $timeout = $this->isDns01() ? 300 : 120;
+        $interval = 1;
+        $elapsedTime = 0;
 
         // Loop while the process exists or until the timeout is reached
         while ($elapsedTime < $timeout) {
-            $pid = Processes::getPidOfProcess($getSsl);
+            $pid = $this->getAcmeProcessPid();
             if (empty($pid)) {
                 break;
             }
             $result = $this->checkResult();
-            // Wait for 1 second
             sleep($interval);
             $elapsedTime += $interval;
         }
 
         if ($elapsedTime >= $timeout) {
-            // If the process did not finish within 120 seconds, handle the timeout
             $result->messages['error'][] = $this->translation->_('module_getssl_GetSSLProcessingTimeout');
             $result->success = false;
             $this->pushMessageToBrowser(self::STAGE_3_PARSE_RESPONSE, $result->getResult());
@@ -178,9 +227,24 @@ class GetSslMain extends Injectable
     }
 
     /**
-     * Creates the necessary ACL configuration file for the domain.
+     * Gets the PID of the running ACME process (acme.sh or legacy getssl).
      */
-    public function createAclConf(): void
+    private function getAcmeProcessPid(): string
+    {
+        // Check acme.sh first
+        $pid = Processes::getPidOfProcess('acme.sh');
+        if (!empty($pid)) {
+            return $pid;
+        }
+        // Fallback: check legacy getssl
+        $getSsl = $this->dirs['getSslPath'];
+        return Processes::getPidOfProcess($getSsl);
+    }
+
+    /**
+     * Prepares the ACME environment: creates symlinks for acme.sh and webroot.
+     */
+    public function prepareAcmeEnvironment(): void
     {
         $extHostname = $this->module_settings['domainName'];
         if (empty($extHostname)) {
@@ -192,58 +256,32 @@ class GetSslMain extends Injectable
         $result->data['result'] = $this->translation->_('module_getssl_ConfigStartsGenerating');
         $this->pushMessageToBrowser(self::STAGE_1_GENERATE_CONFIG, $result->getResult());
 
-        $getSsl = $this->dirs['getSslPath'];
-        $pid = Processes::getPidOfProcess("$getSsl $extHostname");
-        if (!empty($pid)) {
-            Processes::killByName("$getSsl $extHostname");
-        }
-        file_put_contents($this->logFile, '');
-
-        $confDir = $this->dirs['confDir'];
         $binDir = $this->dirs['binDir'];
-        $challengeDir = $this->dirs['challengeDir'];
+        $acmeHome = $this->dirs['acmeHome'];
         $wellKnownDir = $this->dirs['wellKnownDir'];
 
         // Remount /offload as read-write
         $busyBoxPath = Util::which('busybox');
         Processes::mwExec("$busyBoxPath mount -o remount,rw /offload 2> /dev/null");
 
-        // Prepare the configuration file content
-        $conf = 'CA="https://acme-v02.api.letsencrypt.org"' . PHP_EOL .
-            'ACCOUNT_KEY_LENGTH=4096' . PHP_EOL .
-            "ACCOUNT_KEY='$confDir/account.key'" . PHP_EOL .
-            'PRIVATE_KEY_ALG="rsa"' . PHP_EOL .
-            "RELOAD_CMD='$binDir/reloadCmd.php'" . PHP_EOL .
-            'RENEW_ALLOW="30"' . PHP_EOL .
-            'SERVER_TYPE="https"' . PHP_EOL .
-            'CHECK_REMOTE="true"' . PHP_EOL .
-            "ACL=('$challengeDir')" . PHP_EOL .
-            'USE_SINGLE_ACL="true"' . PHP_EOL .
-            'FULL_CHAIN_INCLUDE_ROOT="true"' . PHP_EOL .
-            'SKIP_HTTP_TOKEN_CHECK="true"' . PHP_EOL;
+        // Create symlink for acme.sh
+        Util::createUpdateSymlink("$acmeHome/acme.sh", self::ACME_SH_BIN, true);
 
-
-        // Add email to the configuration if available
-        $email = PbxSettings::getValueByKey('SystemNotificationsEmail');
-        if (!empty($email)) {
-            $conf .= 'ACCOUNT_EMAIL="' . $email . '"' . PHP_EOL;
+        // For HTTP-01: create webroot symlink
+        if (!$this->isDns01()) {
+            Util::createUpdateSymlink($wellKnownDir, '/usr/www/sites/.well-known');
         }
 
-        // Create symlinks and remount /offload as read-only
+        // Legacy getssl symlinks (keep for transition period)
         Util::createUpdateSymlink("$binDir/utils", '/usr/share/getssl');
-        Util::createUpdateSymlink($wellKnownDir, '/usr/www/sites/.well-known');
         Util::createUpdateSymlink("$binDir/getssl", self::GET_SSL_BIN, true);
 
         if (!file_exists(self::NS_LOOKUP_BIN)) {
-            $busyBoxPath = Util::which('busybox');
             Util::createUpdateSymlink($busyBoxPath, self::NS_LOOKUP_BIN, true);
         }
         Processes::mwExec("$busyBoxPath mount -o remount,ro /offload 2> /dev/null");
 
-        // Create a configuration for the domain and save it
-        Util::mwMkdir("$confDir/$extHostname");
-        file_put_contents("$confDir/getssl.cfg", $conf);
-        Util::createUpdateSymlink("$confDir/getssl.cfg", "$confDir/$extHostname/getssl.cfg", true);
+        file_put_contents($this->logFile, '');
 
         $result = new PBXApiResult();
         $result->success = true;
@@ -257,6 +295,8 @@ class GetSslMain extends Injectable
      * @param array $data pushing data
      * @return void
      */
+    private const EVENT_BUS_TYPE = 'module-getssl-progress';
+
     private function pushMessageToBrowser(string $stage, array $data): void
     {
         if (empty($this->asyncChannelId)) {
@@ -270,6 +310,18 @@ class GetSslMain extends Injectable
         ];
 
         $di = MikoPBXVersion::getDefaultDi();
+
+        // PBX >= 2024.2.30: use system event-bus WebSocket
+        if (class_exists('\MikoPBX\Common\Providers\EventBusProvider')) {
+            $di->getShared(\MikoPBX\Common\Providers\EventBusProvider::SERVICE_NAME)
+                ->publish(self::EVENT_BUS_TYPE, $message);
+            return;
+        }
+
+        // Older PBX: fallback to custom nchan channel
+        if (empty($this->asyncChannelId)) {
+            return;
+        }
         $di->get(PBXCoreRESTClientProvider::SERVICE_NAME, [
             '/pbxcore/api/nchan/pub/' . $this->asyncChannelId,
             PBXCoreRESTClientProvider::HTTP_METHOD_POST,
@@ -279,7 +331,7 @@ class GetSslMain extends Injectable
     }
 
     /**
-     * Starts the SSL certificate generation process.
+     * Starts the SSL certificate generation process via acme.sh.
      *
      * @return PBXApiResult The result of the certificate generation process.
      */
@@ -288,36 +340,80 @@ class GetSslMain extends Injectable
         $result = new PBXApiResult();
         $extHostname = $this->module_settings['domainName'];
         if (empty($extHostname)) {
-            // Domain name is not provided
             $result->messages = ['error' => $this->translation->_('module_getssl_DomainNameEmpty')];
             $result->success = false;
             $this->pushMessageToBrowser(self::STAGE_2_REQUEST_CERT, $result->getResult());
             return $result;
         }
-        $getSsl = $this->dirs['getSslPath'];
-        $pid = Processes::getPidOfProcess("$getSsl $extHostname");
-        if ($pid === '') {
-            $confDir = $this->dirs['confDir'];
-            $shPath = Util::which('sh');
-            $tsWrapper = $this->dirs['binDir'] . '/timestampWrapper.sh';
-            if($asynchronously){
-                Processes::mwExecBg("$shPath $tsWrapper $getSsl $extHostname -w '$confDir'", $this->logFile);
-                $pid = Processes::getPidOfProcess("$getSsl $extHostname");
-            }else{
-                echo('starting'.PHP_EOL);
-                passthru("cat '$confDir/getssl.cfg' ");
-                passthru("$shPath $tsWrapper $getSsl $extHostname -w '$confDir'", $this->logFile);
-            }
+
+        // Kill any running acme process
+        $pid = $this->getAcmeProcessPid();
+        if (!empty($pid)) {
+            Processes::killByName('acme.sh');
         }
+
+        $acmeHome = $this->dirs['acmeHome'];
+        $acmeConfigHome = $this->dirs['acmeConfigHome'];
+        $email = PbxSettings::getValueByKey('SystemNotificationsEmail');
+        $binDir = $this->dirs['binDir'];
+
+        // Build acme.sh command
+        $cmd = self::ACME_SH_BIN
+            . " --issue -d " . escapeshellarg($extHostname)
+            . " --home " . escapeshellarg($acmeHome)
+            . " --config-home " . escapeshellarg($acmeConfigHome)
+            . " --server letsencrypt"
+            . " --force"
+            . " --reloadcmd " . escapeshellarg("$binDir/reloadCmd.php");
+
+        if (!empty($email)) {
+            $cmd .= " --accountemail " . escapeshellarg($email);
+        }
+
+        if ($this->isDns01()) {
+            // DNS-01 challenge
+            $dnsProvider = $this->module_settings['dnsProvider'] ?? '';
+            if ($dnsProvider === 'custom') {
+                // For custom provider, the hook name is in credentials
+                $encoded = $this->module_settings['dnsCredentials'] ?? '';
+                $json = base64_decode($encoded, true);
+                $creds = $json !== false ? json_decode($json, true) : [];
+                $hookName = $creds['CUSTOM_DNS_HOOK'] ?? 'dns_manual';
+                $cmd .= " --dns " . escapeshellarg($hookName);
+            } else {
+                $cmd .= " --dns " . escapeshellarg($dnsProvider);
+            }
+            // Prepend env exports for DNS credentials
+            $envExports = $this->buildDnsCredentialEnvString();
+            $cmd = $envExports . $cmd;
+        } else {
+            // HTTP-01 challenge via webroot
+            // acme.sh appends /.well-known/acme-challenge/<token> to webroot,
+            // so pass the document root (confDir), not the challenge dir
+            $webroot = $this->dirs['confDir'];
+            $cmd .= " --webroot " . escapeshellarg($webroot);
+        }
+
+        $shPath = Util::which('sh');
+        $tsWrapper = $this->dirs['binDir'] . '/timestampWrapper.sh';
+
+        if ($asynchronously) {
+            Processes::mwExecBg("$shPath $tsWrapper $cmd", $this->logFile);
+            $pid = $this->getAcmeProcessPid();
+        } else {
+            echo('starting' . PHP_EOL);
+            passthru("$shPath $tsWrapper $cmd", $retCode);
+        }
+
         $result->data['result'] = $this->translation->_('module_getssl_GetSSLProcessing');
-        $result->data['pid'] = $pid;
+        $result->data['pid'] = $pid ?? '';
         $result->success = true;
         $this->pushMessageToBrowser(self::STAGE_2_REQUEST_CERT, $result->getResult());
         return $result;
     }
 
     /**
-     * Checks the result of the GetSSL process and sends updates to the front-end.
+     * Checks the result of the ACME process and sends updates to the front-end.
      *
      * @return PBXApiResult The final result of the process or timeout.
      */
@@ -325,7 +421,6 @@ class GetSslMain extends Injectable
     {
         $result = new PBXApiResult();
         $result->success = true;
-        // Send an update to the front-end about the running process
         $result->data['result'] = file_get_contents($this->logFile) ?? '';
         $this->pushMessageToBrowser(self::STAGE_3_PARSE_RESPONSE, $result->getResult());
         return $result;
@@ -333,6 +428,7 @@ class GetSslMain extends Injectable
 
     /**
      * Runs the SSL certificate update process.
+     * Checks acme.sh paths first, then falls back to legacy getssl paths.
      */
     public function run(): void
     {
@@ -349,23 +445,38 @@ class GetSslMain extends Injectable
 
     /**
      * Returns the path to the SSL certificate.
+     * Checks acme.sh location first, then falls back to legacy getssl.
      *
      * @return string The certificate path.
      */
     private function getCertPath(): string
     {
-        return $this->dirs['confDir'] .'/'. $this->module_settings['domainName'] . '/fullchain.crt';
+        $extHostname = $this->module_settings['domainName'];
+        // acme.sh path
+        $acmePath = $this->dirs['acmeConfigHome'] . '/' . $extHostname . '/fullchain.cer';
+        if (file_exists($acmePath)) {
+            return $acmePath;
+        }
+        // Legacy getssl path
+        return $this->dirs['confDir'] . '/' . $extHostname . '/fullchain.crt';
     }
 
     /**
      * Returns the path to the private SSL key.
+     * Checks acme.sh location first, then falls back to legacy getssl.
      *
      * @return string The private key path.
      */
     private function getPrivateKeyPath(): string
     {
         $extHostname = $this->module_settings['domainName'];
-        return $this->dirs['confDir'] . '/' .$extHostname . "/$extHostname.key";
+        // acme.sh path
+        $acmePath = $this->dirs['acmeConfigHome'] . '/' . $extHostname . '/' . $extHostname . '.key';
+        if (file_exists($acmePath)) {
+            return $acmePath;
+        }
+        // Legacy getssl path
+        return $this->dirs['confDir'] . '/' . $extHostname . '/' . $extHostname . '.key';
     }
 
     /**
@@ -400,11 +511,6 @@ class GetSslMain extends Injectable
     /**
      * Generates a cron task string for automatically updating SSL certificates.
      *
-     * This method checks if the `autoUpdate` setting is enabled in the module settings.
-     * If enabled, it constructs a cron task string that runs the GetSSL binary daily at 1:00 AM.
-     * The task runs the GetSSL command with the `-a` (automatic), `-U` (update), and `-q` (quiet) options,
-     * redirecting output to `/dev/null`.
-     *
      * @return string The cron task string if auto-update is enabled, otherwise an empty string.
      */
     public function getCronTask(): string
@@ -419,5 +525,14 @@ class GetSslMain extends Injectable
             return "0 1 1,15 * * $phpPath -f $cronScript > /dev/null 2>&1" . PHP_EOL;
         }
         return '';
+    }
+
+    /**
+     * Legacy compatibility: creates ACL configuration for getssl.
+     * Delegates to prepareAcmeEnvironment().
+     */
+    public function createAclConf(): void
+    {
+        $this->prepareAcmeEnvironment();
     }
 }

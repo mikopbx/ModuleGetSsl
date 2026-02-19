@@ -24,6 +24,7 @@ use MikoPBX\AdminCabinet\Controllers\BaseController;
 use MikoPBX\AdminCabinet\Providers\AssetProvider;
 use MikoPBX\Common\Models\LanInterfaces;
 use Modules\ModuleGetSsl\App\Forms\ModuleGetSslForm;
+use Modules\ModuleGetSsl\Lib\DnsProviderRegistry;
 use Modules\ModuleGetSsl\Models\ModuleGetSsl;
 
 class ModuleGetSslController extends BaseController
@@ -65,7 +66,11 @@ class ModuleGetSslController extends BaseController
             $settings->domainName = $res['exthostname'] ?? '';
         }
 
-        $this->view->form = new ModuleGetSslForm($settings, []);
+        $dnsProviderOptions = DnsProviderRegistry::getProviderSelectOptions();
+        $this->view->form = new ModuleGetSslForm($settings, [
+            'dnsProviderOptions' => $dnsProviderOptions,
+        ]);
+        $this->view->dnsProvidersJson = json_encode(DnsProviderRegistry::getProviders());
     }
 
     /**
@@ -88,6 +93,10 @@ class ModuleGetSslController extends BaseController
                     break;
                 case 'autoUpdate':
                     $record->$key = ($newVal === 'on') ? '1' : '0';
+                    break;
+                case 'dnsCredentials':
+                    // Store raw base64-encoded JSON as-is from the frontend
+                    $record->$key = $newVal;
                     break;
                 default:
                     $record->$key = $newVal;
