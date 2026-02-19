@@ -79,7 +79,7 @@ class GetSslConf extends ConfigClass
                     if (!empty($asyncChannelId)) {
                         $res = $moduleMain->checkResultAsync();
                     }
-                    $moduleMain->run();
+                    // Certificate installation is handled by reloadCmd.php (--reloadcmd)
                 } finally {
                     if ($portManager !== null) {
                         $portManager->closePort();
