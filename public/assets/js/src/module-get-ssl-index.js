@@ -215,7 +215,9 @@ const ModuleGetSsl = {
 			beforeSend(settings) {
 				ModuleGetSsl.$submitButton.addClass('loading disabled');
 				moduleGetSSLStatusLoopWorker.$resultBlock.show();
-				moduleGetSSLStatusLoopWorker.editor.getSession().setValue('');
+				moduleGetSSLStatusLoopWorker.editor.getSession().setValue(
+				globalTranslate.module_getssl_GetSSLProcessing + '\n'
+			);
 				return settings;
 			},
 			successTest: PbxApi.successTest,
