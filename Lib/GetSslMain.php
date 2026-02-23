@@ -163,9 +163,12 @@ class GetSslMain extends Injectable
     }
 
     /**
-     * Decodes DNS credentials from base64 JSON and builds an export string.
+     * Decodes DNS credentials from base64 JSON and builds an env command prefix.
      *
-     * @return string Shell export commands, e.g. "export CF_Token='xxx'; export CF_Account_ID='yyy'; "
+     * Uses `env VAR=val` instead of `export VAR=val;` to avoid semicolons
+     * that break shell command parsing when passed through mwExecBg/timestampWrapper.
+     *
+     * @return string env command prefix, e.g. "/usr/bin/env CF_Token='xxx' CF_Account_ID='yyy' "
      */
     public function buildDnsCredentialEnvString(): string
     {
@@ -181,15 +184,14 @@ class GetSslMain extends Injectable
         if (!is_array($credentials)) {
             return '';
         }
-        $exports = '';
+        $envPath = Util::which('env');
+        $parts = [$envPath];
         foreach ($credentials as $varName => $value) {
             // Sanitize: only allow alphanumeric and underscore in var names
             $safeVar = preg_replace('/[^A-Za-z0-9_]/', '', $varName);
-            // Escape single quotes in value
-            $safeVal = str_replace("'", "'\\''", $value);
-            $exports .= "export {$safeVar}='{$safeVal}'; ";
+            $parts[] = $safeVar . '=' . escapeshellarg($value);
         }
-        return $exports;
+        return implode(' ', $parts) . ' ';
     }
 
     /**
@@ -364,7 +366,7 @@ class GetSslMain extends Injectable
             . " --config-home " . escapeshellarg($acmeConfigHome)
             . " --server letsencrypt"
             . " --force"
-            . " --reloadcmd " . escapeshellarg("$binDir/reloadCmd.php");
+            . " --reloadcmd " . escapeshellarg(Util::which('php') . " -f $binDir/reloadCmd.php");
 
         if (!empty($email)) {
             $cmd .= " --accountemail " . escapeshellarg($email);
@@ -452,11 +454,20 @@ class GetSslMain extends Injectable
     private function getCertPath(): string
     {
         $extHostname = $this->module_settings['domainName'];
-        // acme.sh path
-        $acmePath = $this->dirs['acmeConfigHome'] . '/' . $extHostname . '/fullchain.cer';
+        $configHome = $this->dirs['acmeConfigHome'];
+
+        // acme.sh ECDSA path (default key type)
+        $acmeEccPath = $configHome . '/' . $extHostname . '_ecc/fullchain.cer';
+        if (file_exists($acmeEccPath)) {
+            return $acmeEccPath;
+        }
+
+        // acme.sh RSA path
+        $acmePath = $configHome . '/' . $extHostname . '/fullchain.cer';
         if (file_exists($acmePath)) {
             return $acmePath;
         }
+
         // Legacy getssl path
         return $this->dirs['confDir'] . '/' . $extHostname . '/fullchain.crt';
     }
@@ -470,11 +481,20 @@ class GetSslMain extends Injectable
     private function getPrivateKeyPath(): string
     {
         $extHostname = $this->module_settings['domainName'];
-        // acme.sh path
-        $acmePath = $this->dirs['acmeConfigHome'] . '/' . $extHostname . '/' . $extHostname . '.key';
+        $configHome = $this->dirs['acmeConfigHome'];
+
+        // acme.sh ECDSA path (default key type)
+        $acmeEccPath = $configHome . '/' . $extHostname . '_ecc/' . $extHostname . '.key';
+        if (file_exists($acmeEccPath)) {
+            return $acmeEccPath;
+        }
+
+        // acme.sh RSA path
+        $acmePath = $configHome . '/' . $extHostname . '/' . $extHostname . '.key';
         if (file_exists($acmePath)) {
             return $acmePath;
         }
+
         // Legacy getssl path
         return $this->dirs['confDir'] . '/' . $extHostname . '/' . $extHostname . '.key';
     }
