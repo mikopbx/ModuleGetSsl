@@ -189,9 +189,17 @@ const moduleGetSSLStatusLoopWorker = {
                 resultText = response.stageDetails.data.result;
             }
             moduleGetSSLStatusLoopWorker.editor.getSession().setValue(resultText);
+
+            // Keep button locked while events arrive; unlock immediately on final stage
+            if (response.stage === 'STAGE_4_FINAL_RESULT') {
+                ModuleGetSsl.unlockButton();
+            } else {
+                ModuleGetSsl.scheduleButtonUnlock();
+            }
         } else {
             UserMessage.showMultiString(response.stageDetails.messages);
             moduleGetSSLStatusLoopWorker.$resultBlock.hide();
+            ModuleGetSsl.unlockButton();
         }
     },
 
