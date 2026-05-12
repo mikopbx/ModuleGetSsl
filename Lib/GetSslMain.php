@@ -427,14 +427,15 @@ class GetSslMain extends Injectable
     }
 
     /**
-     * Runs the SSL certificate update process.
-     * Checks acme.sh paths first, then falls back to legacy getssl paths.
+     * Installs the acme.sh-issued certificate into PbxSettings.
+     * Called by reloadCmd.php (--reloadcmd hook) after a successful issue/renew.
      */
     public function run(): void
     {
         $certPath = $this->getCertPath();
         $privateKeyPath = $this->getPrivateKeyPath();
-        if (file_exists($privateKeyPath) && file_exists($certPath)) {
+        if ($certPath !== '' && $privateKeyPath !== ''
+            && file_exists($privateKeyPath) && file_exists($certPath)) {
             $this->updateKey('WEBHTTPSPublicKey', $certPath);
             $this->updateKey('WEBHTTPSPrivateKey', $privateKeyPath);
             $this->appendLog('SSL certificate installed into PbxSettings');
@@ -444,39 +445,65 @@ class GetSslMain extends Injectable
     }
 
     /**
-     * Returns the path to the SSL certificate.
-     * Checks acme.sh location first, then falls back to legacy getssl.
-     *
-     * @return string The certificate path.
+     * Returns true when acme.sh has a renewal config for the configured domain.
+     * Presence of the .conf file is required — acme.sh creates it only after a
+     * successful --issue, so it reliably distinguishes a leftover cert (from a
+     * legacy getssl migration) from a domain that acme.sh actually manages.
      */
-    private function getCertPath(): string
+    public function hasAcmeDomain(): bool
     {
-        $extHostname = $this->module_settings['domainName'];
-        // acme.sh path
-        $acmePath = $this->dirs['acmeConfigHome'] . '/' . $extHostname . '/fullchain.cer';
-        if (file_exists($acmePath)) {
-            return $acmePath;
+        $domain = $this->module_settings['domainName'] ?? '';
+        if ($domain === '') {
+            return false;
         }
-        // Legacy getssl path
-        return $this->dirs['confDir'] . '/' . $extHostname . '/fullchain.crt';
+        $configHome = $this->dirs['acmeConfigHome'];
+        return is_file("$configHome/{$domain}_ecc/{$domain}.conf")
+            || is_file("$configHome/{$domain}/{$domain}.conf");
     }
 
     /**
-     * Returns the path to the private SSL key.
-     * Checks acme.sh location first, then falls back to legacy getssl.
-     *
-     * @return string The private key path.
+     * Returns the path to the SSL certificate issued by acme.sh,
+     * or an empty string if no acme.sh-issued certificate is present.
+     */
+    private function getCertPath(): string
+    {
+        $domain = $this->module_settings['domainName'] ?? '';
+        if ($domain === '') {
+            return '';
+        }
+        $configHome = $this->dirs['acmeConfigHome'];
+        // ECDSA is the acme.sh default
+        $eccPath = "$configHome/{$domain}_ecc/fullchain.cer";
+        if (file_exists($eccPath)) {
+            return $eccPath;
+        }
+        $rsaPath = "$configHome/{$domain}/fullchain.cer";
+        if (file_exists($rsaPath)) {
+            return $rsaPath;
+        }
+        return '';
+    }
+
+    /**
+     * Returns the path to the acme.sh-issued private key,
+     * or an empty string if no acme.sh-issued key is present.
      */
     private function getPrivateKeyPath(): string
     {
-        $extHostname = $this->module_settings['domainName'];
-        // acme.sh path
-        $acmePath = $this->dirs['acmeConfigHome'] . '/' . $extHostname . '/' . $extHostname . '.key';
-        if (file_exists($acmePath)) {
-            return $acmePath;
+        $domain = $this->module_settings['domainName'] ?? '';
+        if ($domain === '') {
+            return '';
         }
-        // Legacy getssl path
-        return $this->dirs['confDir'] . '/' . $extHostname . '/' . $extHostname . '.key';
+        $configHome = $this->dirs['acmeConfigHome'];
+        $eccPath = "$configHome/{$domain}_ecc/{$domain}.key";
+        if (file_exists($eccPath)) {
+            return $eccPath;
+        }
+        $rsaPath = "$configHome/{$domain}/{$domain}.key";
+        if (file_exists($rsaPath)) {
+            return $rsaPath;
+        }
+        return '';
     }
 
     /**

@@ -37,26 +37,30 @@ if ($usePort80) {
 try {
     $moduleMain->prepareAcmeEnvironment();
 
-    $acmeHome = $moduleMain->dirs['acmeHome'];
-    $acmeConfigHome = $moduleMain->dirs['acmeConfigHome'];
-    $shPath = Util::which('sh');
-    $tsWrapper = $moduleMain->dirs['binDir'] . '/timestampWrapper.sh';
+    if ($moduleMain->hasAcmeDomain()) {
+        // acme.sh already manages this domain — do a normal renewal pass.
+        // On success acme.sh invokes --reloadcmd (reloadCmd.php), which calls run()
+        // and installs the new cert into PbxSettings. No extra run() needed here.
+        $acmeHome       = $moduleMain->dirs['acmeHome'];
+        $acmeConfigHome = $moduleMain->dirs['acmeConfigHome'];
+        $shPath         = Util::which('sh');
+        $tsWrapper      = $moduleMain->dirs['binDir'] . '/timestampWrapper.sh';
 
-    // Build acme.sh cron renewal command
-    $cmd = GetSslMain::ACME_SH_BIN
-        . ' --cron'
-        . ' --home ' . escapeshellarg($acmeHome)
-        . ' --config-home ' . escapeshellarg($acmeConfigHome);
+        $cmd = GetSslMain::ACME_SH_BIN
+            . ' --cron'
+            . ' --home ' . escapeshellarg($acmeHome)
+            . ' --config-home ' . escapeshellarg($acmeConfigHome);
 
-    // For DNS-01: prepend env exports
-    if ($moduleMain->isDns01()) {
-        $envExports = $moduleMain->buildDnsCredentialEnvString();
-        $cmd = $envExports . $cmd;
+        if ($moduleMain->isDns01()) {
+            $cmd = $moduleMain->buildDnsCredentialEnvString() . $cmd;
+        }
+
+        Processes::mwExec("$shPath $tsWrapper $cmd");
+    } else {
+        // First run after upgrade from legacy getssl: no renewal config exists yet.
+        // acme.sh --cron would silently no-op, so trigger a full --issue instead.
+        $moduleMain->startGetCertSsl(false);
     }
-
-    Processes::mwExec("$shPath $tsWrapper $cmd");
-
-    $moduleMain->run();
 } finally {
     if ($portManager !== null) {
         $portManager->closePort();
