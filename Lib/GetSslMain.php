@@ -522,7 +522,14 @@ class GetSslMain extends Injectable
             $dbRec = PbxSettings::findFirst($filter) ?? new PbxSettings();
             $dbRec->key = $name;
             $dbRec->value = $key;
-            $dbRec->save();
+            try {
+                $dbRec->save();
+            } catch (\Throwable $e) {
+                // afterSave triggers an event-bus publish that races nginx reload
+                // when called from acme.sh --reloadcmd. The DB write itself has
+                // already succeeded; swallow the noisy nchan failure.
+                $this->appendLog('updateKey ' . $name . ': ' . $e->getMessage());
+            }
         }
     }
 
