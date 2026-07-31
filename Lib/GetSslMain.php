@@ -159,7 +159,18 @@ class GetSslMain extends Injectable
      */
     public function isDns01(): bool
     {
-        return ($this->module_settings['challengeType'] ?? 'http') === 'dns';
+        return ($this->module_settings['challengeType'] ?? 'http') === 'dns'
+            && !CertificateIdentifierPolicy::requiresHttp01($this->module_settings);
+    }
+
+    public function getCertificateIdentifiers(): array
+    {
+        return CertificateIdentifierPolicy::getIdentifiers($this->module_settings);
+    }
+
+    public function hasIpIdentifier(): bool
+    {
+        return CertificateIdentifierPolicy::containsIpAddress($this->module_settings);
     }
 
     /**
@@ -359,7 +370,8 @@ class GetSslMain extends Injectable
 
         // Build acme.sh command
         $cmd = self::ACME_SH_BIN
-            . " --issue -d " . escapeshellarg($extHostname)
+            . " --issue"
+            . CertificateIdentifierPolicy::buildAcmeIdentifierArguments($this->module_settings)
             . " --home " . escapeshellarg($acmeHome)
             . " --config-home " . escapeshellarg($acmeConfigHome)
             . " --server letsencrypt"
@@ -551,12 +563,14 @@ class GetSslMain extends Injectable
     {
         if (
             PbxExtensionUtils::isEnabled($this->moduleUniqueID)
-            && intval($this->module_settings['autoUpdate']) === 1
             && !empty($this->module_settings['domainName'])
+            && (intval($this->module_settings['autoUpdate'] ?? 0) === 1
+                || CertificateIdentifierPolicy::requiresAutoUpdate($this->module_settings))
         ) {
             $phpPath = Util::which('php');
             $cronScript = $this->dirs['moduleDir'] . '/bin/cronRenewCert.php';
-            return "0 1 1,15 * * $phpPath -f $cronScript > /dev/null 2>&1" . PHP_EOL;
+            $schedule = CertificateIdentifierPolicy::getCronSchedule($this->module_settings);
+            return "$schedule $phpPath -f $cronScript > /dev/null 2>&1" . PHP_EOL;
         }
         return '';
     }

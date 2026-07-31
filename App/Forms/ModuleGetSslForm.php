@@ -37,6 +37,12 @@ class ModuleGetSslForm extends Form
         // DomainName
         $this->add(new Text('domainName'));
 
+        // Optional additional public IP SAN
+        $this->addCheckBox('includeIpAddress', intval($entity->includeIpAddress ?? 0) === 1);
+        $this->add(new Text('publicIpAddress', [
+            'value' => $entity->publicIpAddress ?? '',
+        ]));
+
         // Challenge type: http or dns
         $challengeTypeOptions = [
             'http' => 'HTTP-01 (port 80)',

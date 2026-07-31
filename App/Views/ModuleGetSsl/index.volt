@@ -12,6 +12,21 @@
         </div>
     </div>
 
+    <div class="field disability" id="include-ip-address-field" style="display:none">
+        <div class="ui checkbox" id="include-ip-address-checkbox">
+            {{ form.render('includeIpAddress') }}
+            <label>{{ t._('module_getssl_IncludeIpAddressLabel') }}</label>
+        </div>
+    </div>
+
+    <div class="field disability" id="public-ip-address-settings" style="display:none">
+        <label>{{ t._('module_getssl_PublicIpAddressLabel') }}</label>
+        {{ form.render('publicIpAddress') }}
+        <div class="ui warning message">
+            <p>{{ t._('module_getssl_DomainAndIpCertificateWarning') }}</p>
+        </div>
+    </div>
+
     <div class="field disability">
         <label>{{ t._('module_getssl_ChallengeTypeLabel') }}</label>
         {{ form.render('challengeType') }}
@@ -40,7 +55,7 @@
 
     <div class="field disability">
         <div class="ui segment">
-            <div class="ui checkbox">
+            <div class="ui checkbox" id="auto-update-checkbox">
                 <label>{{ t._('module_getssl_autoUpdateLabel') }}</label>
                 {{ form.render('autoUpdate') }}
             </div>

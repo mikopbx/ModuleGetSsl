@@ -66,22 +66,22 @@ class AcmeHttpPort
         $lockData = json_encode(['pid' => getmypid(), 'time' => time()]);
         file_put_contents(self::LOCK_FILE, $lockData);
 
-        $domainName = $this->getDomainName();
-        if (empty($domainName)) {
+        $serverNames = $this->getServerNames();
+        if (empty($serverNames)) {
             unlink(self::LOCK_FILE);
             $this->log('Port 80 open skipped: domain name is empty');
             return false;
         }
 
-        $this->createNginxConf($domainName);
+        $this->createNginxConf($serverNames);
         $this->reloadNginx();
 
         $firewallManaged = $this->isFirewallManaged();
         if ($firewallManaged) {
             $this->addFirewallRules();
-            $this->log("Port 80 opened for $domainName (nginx + iptables)");
+            $this->log("Port 80 opened for $serverNames (nginx + iptables)");
         } else {
-            $this->log("Port 80 opened for $domainName (nginx only, firewall not managed)");
+            $this->log("Port 80 opened for $serverNames (nginx only, firewall not managed)");
         }
 
         return true;
@@ -164,16 +164,17 @@ class AcmeHttpPort
         return false;
     }
 
-    /**
-     * Gets domain name from module settings.
-     */
-    private function getDomainName(): string
+    private function getServerNames(): string
     {
         $settings = ModuleGetSsl::findFirst();
         if ($settings === null) {
             return '';
         }
-        return $settings->domainName ?? '';
+        try {
+            return implode(' ', CertificateIdentifierPolicy::getIdentifiers($settings->toArray()));
+        } catch (\InvalidArgumentException $e) {
+            return $settings->domainName ?? '';
+        }
     }
 
     /**

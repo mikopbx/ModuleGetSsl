@@ -25,6 +25,7 @@ use MikoPBX\AdminCabinet\Providers\AssetProvider;
 use MikoPBX\Common\Models\LanInterfaces;
 use Modules\ModuleGetSsl\App\Forms\ModuleGetSslForm;
 use Modules\ModuleGetSsl\Lib\DnsProviderRegistry;
+use Modules\ModuleGetSsl\Lib\CertificateIdentifierPolicy;
 use Modules\ModuleGetSsl\Models\ModuleGetSsl;
 
 class ModuleGetSslController extends BaseController
@@ -92,7 +93,11 @@ class ModuleGetSslController extends BaseController
                 case 'id':
                     break;
                 case 'autoUpdate':
+                case 'includeIpAddress':
                     $record->$key = ($newVal === 'on') ? '1' : '0';
+                    break;
+                case 'publicIpAddress':
+                    $record->$key = CertificateIdentifierPolicy::normalizeIpAddress($newVal);
                     break;
                 case 'dnsCredentials':
                     // Store raw base64-encoded JSON as-is from the frontend
@@ -101,6 +106,20 @@ class ModuleGetSslController extends BaseController
                 default:
                     $record->$key = $newVal;
             }
+        }
+
+        try {
+            $settings = $record->toArray();
+            CertificateIdentifierPolicy::getIdentifiers($settings);
+            if (CertificateIdentifierPolicy::containsIpAddress($settings)) {
+                $record->challengeType = 'http';
+                $record->autoUpdate = '1';
+            }
+        } catch (\InvalidArgumentException $e) {
+            $this->flash->error($this->translation->_('module_getssl_PublicIpAddressInvalid'));
+            $this->view->success = false;
+            $this->db->rollback();
+            return;
         }
 
         if ($record->save() === false) {
