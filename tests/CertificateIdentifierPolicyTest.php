@@ -67,4 +67,25 @@ try {
 }
 assertSameValue(true, $thrown, 'Primary IP address must be public');
 
+assertSameValue(
+    '178.154.243.193',
+    CertificateIdentifierPolicy::selectSuggestedPublicIp('178.154.243.193', ['158.160.170.198']),
+    'Configured external IP has priority'
+);
+assertSameValue(
+    '178.154.243.193',
+    CertificateIdentifierPolicy::selectSuggestedPublicIp('178.154.243.193:5060', ['158.160.170.198']),
+    'Configured external IPv4 port is removed'
+);
+assertSameValue(
+    '158.160.170.198',
+    CertificateIdentifierPolicy::selectSuggestedPublicIp('10.0.0.24', ['192.168.1.10', '158.160.170.198']),
+    'Domain resolution is the fallback'
+);
+assertSameValue(
+    '',
+    CertificateIdentifierPolicy::selectSuggestedPublicIp('', ['192.168.1.10']),
+    'No public candidate produces no suggestion'
+);
+
 echo "CertificateIdentifierPolicyTest: PASS\n";

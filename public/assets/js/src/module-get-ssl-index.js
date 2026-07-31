@@ -1,4 +1,4 @@
-/* global globalRootUrl, globalTranslate, Form, Config, PbxApi, dnsProvidersMeta */
+/* global globalRootUrl, globalTranslate, Form, Config, PbxApi, dnsProvidersMeta, suggestedPublicIp */
 
 // Constants related to the form and module
 const idUrl     = 'module-get-ssl';              // API endpoint for SSL module
@@ -150,6 +150,10 @@ const ModuleGetSsl = {
 			this.$includeIpAddressCheckbox.checkbox('uncheck');
 		}
 		const includeIp = canIncludeIp && this.$includeIpAddress.is(':checked');
+		if (includeIp && !String(this.$publicIpAddress.val() || '').trim()
+			&& typeof suggestedPublicIp === 'string' && this.isPublicIpAddress(suggestedPublicIp)) {
+			this.$publicIpAddress.val(suggestedPublicIp);
+		}
 
 		this.$includeIpAddressField.toggle(canIncludeIp);
 		this.$publicIpAddressSettings.toggle(includeIp);

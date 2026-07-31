@@ -60,18 +60,41 @@ class ModuleGetSslController extends BaseController
         $headerCollectionCSS = $this->assets->collection(AssetProvider::HEADER_CSS);
         $headerCollectionCSS->addCss("css/cache/{$this->moduleUniqueID}/module-get-ssl.css", true);
 
+        $internetInterface = LanInterfaces::findFirst("internet = '1'");
+        $interfaceSettings = $internetInterface !== null ? $internetInterface->toArray() : [];
         $settings = ModuleGetSsl::findFirst();
         if ($settings === null) {
             $settings = new ModuleGetSsl();
-            $res = LanInterfaces::findFirst("internet = '1'")->toArray();
-            $settings->domainName = $res['exthostname'] ?? '';
+            $settings->domainName = $interfaceSettings['exthostname'] ?? '';
         }
+
+        $resolvedIps = [];
+        $domainName = trim((string)($settings->domainName ?? ''));
+        if ($domainName !== '' && !CertificateIdentifierPolicy::isIpAddress($domainName)) {
+            $resolvedV4 = gethostbynamel($domainName);
+            if (is_array($resolvedV4)) {
+                $resolvedIps = array_merge($resolvedIps, $resolvedV4);
+            }
+            $resolvedV6 = dns_get_record($domainName, DNS_AAAA);
+            if (is_array($resolvedV6)) {
+                foreach ($resolvedV6 as $record) {
+                    if (!empty($record['ipv6'])) {
+                        $resolvedIps[] = $record['ipv6'];
+                    }
+                }
+            }
+        }
+        $suggestedPublicIp = CertificateIdentifierPolicy::selectSuggestedPublicIp(
+            (string)($interfaceSettings['extipaddr'] ?? ''),
+            $resolvedIps
+        );
 
         $dnsProviderOptions = DnsProviderRegistry::getProviderSelectOptions();
         $this->view->form = new ModuleGetSslForm($settings, [
             'dnsProviderOptions' => $dnsProviderOptions,
         ]);
         $this->view->dnsProvidersJson = json_encode(DnsProviderRegistry::getProviders());
+        $this->view->suggestedPublicIpJson = json_encode($suggestedPublicIp);
     }
 
     /**

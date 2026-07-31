@@ -71,6 +71,7 @@ function loadController() {
 		dnsProvidersMeta: [],
 		moduleGetSSLStatusLoopWorker: {},
 		UserMessage: {},
+		suggestedPublicIp: '178.154.243.193',
 	};
 	vm.createContext(context);
 	const source = fs.readFileSync(sourcePath, 'utf8')
@@ -174,4 +175,20 @@ test('accepts only public addresses in the additional IP field', () => {
 	assert.equal(controller.isPublicIpAddress('203.0.113.1'), false);
 	assert.equal(controller.isPublicIpAddress('2001:db8::1'), false);
 	assert.equal(controller.isPublicIpAddress('pbx.example.com'), false);
+});
+
+test('fills an empty additional IP field from the server suggestion when enabled', () => {
+	const { controller, elements } = loadController();
+	const address = elements.get('#domainName');
+	const checkbox = elements.get('#includeIpAddress');
+	const publicIp = elements.get('#publicIpAddress');
+
+	address.val('pbx.example.com');
+	checkbox.checked = true;
+	controller.updateCertificateIdentifierControls();
+	assert.equal(publicIp.val(), '178.154.243.193');
+
+	publicIp.val('8.8.8.8');
+	controller.updateCertificateIdentifierControls();
+	assert.equal(publicIp.val(), '8.8.8.8');
 });

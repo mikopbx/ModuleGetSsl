@@ -102,6 +102,33 @@ final class CertificateIdentifierPolicy
         return $arguments;
     }
 
+    public static function selectSuggestedPublicIp(string $configuredExternalIp, array $resolvedIps): string
+    {
+        $configuredExternalIp = self::normalizeIpWithOptionalPort($configuredExternalIp);
+        if (self::isPublicIpAddress($configuredExternalIp)) {
+            return $configuredExternalIp;
+        }
+        foreach ($resolvedIps as $resolvedIp) {
+            $resolvedIp = self::normalizeIpAddress((string)$resolvedIp);
+            if (self::isPublicIpAddress($resolvedIp)) {
+                return $resolvedIp;
+            }
+        }
+        return '';
+    }
+
+    private static function normalizeIpWithOptionalPort(string $value): string
+    {
+        $value = trim($value);
+        if (preg_match('/^\[([^]]+)](?::\d+)?$/', $value, $matches) === 1) {
+            return $matches[1];
+        }
+        if (substr_count($value, ':') === 1 && preg_match('/^(.+):(\d+)$/', $value, $matches) === 1) {
+            return $matches[1];
+        }
+        return self::normalizeIpAddress($value);
+    }
+
     private static function isInCidr(string $ipAddress, string $cidr): bool
     {
         [$network, $prefixLength] = explode('/', $cidr, 2);

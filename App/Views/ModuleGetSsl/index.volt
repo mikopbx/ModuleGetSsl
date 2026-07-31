@@ -1,4 +1,7 @@
-<script>var dnsProvidersMeta = {{ dnsProvidersJson }};</script>
+<script>
+    var dnsProvidersMeta = {{ dnsProvidersJson }};
+    var suggestedPublicIp = {{ suggestedPublicIpJson }};
+</script>
 
 <form class="ui large grey segment form" id="module-get-ssl-form">
     {{ form.render('id') }}
