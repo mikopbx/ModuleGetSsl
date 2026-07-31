@@ -7,6 +7,9 @@
     <div class="field disability">
         <label>{{ t._('module_getssl_DomainNameLabel') }}</label>
             {{ form.render('domainName') }}
+        <div class="ui warning message" id="ip-address-certificate-warning" style="display:none">
+            <p>{{ t._('module_getssl_IpAddressCertificateWarning') }}</p>
+        </div>
     </div>
 
     <div class="field disability">

@@ -14,12 +14,14 @@ const ModuleGetSsl = {
 	$statusToggle: $('#module-status-toggle'),
 	$submitButton: $('#submitbutton'),
 	$moduleStatus: $('#status'),
+	$domainName: $('#domainName'),
 	$challengeType: $('#challengeType'),
 	$dnsProvider: $('#dnsProvider'),
 	$httpChallengeInfo: $('#http-challenge-info'),
 	$dnsSettingsBlock: $('#dns-settings-block'),
 	$dnsCredentialsFields: $('#dns-credentials-fields'),
 	$dnsCredentialsInput: $('input[name="dnsCredentials"]'),
+	$ipAddressWarning: $('#ip-address-certificate-warning'),
 
 	// Validation rules for the form
 	validateRules: {
@@ -56,6 +58,7 @@ const ModuleGetSsl = {
 
 		// Initialize form with validation and submit handlers
 		this.initializeForm();
+		this.bindIpAddressWarning();
 
 		moduleGetSSLStatusLoopWorker.$resultBlock.hide();
 
@@ -63,6 +66,48 @@ const ModuleGetSsl = {
 		const currentChallenge = this.$challengeType.dropdown('get value') || 'http';
 		this.onChangeChallengeType(currentChallenge);
 		this.restoreSavedCredentials();
+	},
+
+	/**
+	 * Check whether a value is a valid IPv4 or IPv6 address.
+	 * @param {string} value
+	 * @returns {boolean}
+	 */
+	isIpAddress(value) {
+		const address = String(value || '').trim();
+		const ipv4Parts = address.split('.');
+		if (ipv4Parts.length === 4) {
+			return ipv4Parts.every(part => /^\d{1,3}$/.test(part)
+				&& Number(part) <= 255
+				&& (part === '0' || part[0] !== '0'));
+		}
+
+		const hasOpeningBracket = address.startsWith('[');
+		const hasClosingBracket = address.endsWith(']');
+		if (hasOpeningBracket !== hasClosingBracket) return false;
+		const ipv6 = hasOpeningBracket ? address.slice(1, -1) : address;
+		if (!ipv6.includes(':') || /\s/.test(ipv6)) return false;
+		try {
+			new URL(`http://[${ipv6}]/`);
+			return true;
+		} catch (e) {
+			return false;
+		}
+	},
+
+	/** Update warning visibility when the configured address changes. */
+	updateIpAddressWarning() {
+		if (this.isIpAddress(this.$domainName.val())) {
+			this.$ipAddressWarning.show();
+		} else {
+			this.$ipAddressWarning.hide();
+		}
+	},
+
+	/** Bind reactive IP warning behavior and initialize its state. */
+	bindIpAddressWarning() {
+		this.$domainName.on('input', () => this.updateIpAddressWarning());
+		this.updateIpAddressWarning();
 	},
 
 	/**

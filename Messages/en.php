@@ -15,6 +15,7 @@ return [
     'module_getssl_autoUpdateLabel' => 'Renew certificate automatically',
     'module_getssl_getUpdateSSLButton' => 'Get/Renew SSL Certificate',
     'module_getssl_DomainNameEmpty' => 'Enter the domain value to generate the certificate',
+    'module_getssl_IpAddressCertificateWarning' => 'Let’s Encrypt certificates for IP addresses are valid for about 6 days. The module will renew this certificate more frequently.',
     'module_getssl_getUpdateLogHeader' => 'Lets Encrypt Certificate Request Result',
     'module_getssl_ConfigStartsGenerating' => 'Generating configuration files...',
     'module_getssl_ConfigGenerated' => 'Configuration files created...',

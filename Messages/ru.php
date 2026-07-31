@@ -27,6 +27,7 @@ return [
     'module_getssl_getUpdateSSLButton' => 'Получить/обновить SSL сертификат',
     'module_getssl_getUpdateLogHeader' => 'Результат запроса сертификата в Lets Encrypt',
     'module_getssl_DomainNameEmpty' => 'Введите значение домена для генерации сертификата',
+    'module_getssl_IpAddressCertificateWarning' => 'Сертификаты Let’s Encrypt для IP-адресов действуют около 6 дней. Модуль будет обновлять такой сертификат чаще.',
     'module_getssl_ConfigStartsGenerating' => 'Генерируем конфигурационные файлы...',
     'module_getssl_ConfigGenerated' => 'Конфигурационные файлы созданы...',
     'module_getssl_GetSSLProcessing' => 'Выполняется запрос данных в Lets Encrypt...',
