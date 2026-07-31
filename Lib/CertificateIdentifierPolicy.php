@@ -97,7 +97,10 @@ final class CertificateIdentifierPolicy
             $arguments .= ' -d ' . escapeshellarg($identifier);
         }
         if (self::containsIpAddress($settings)) {
-            $arguments .= ' --cert-profile shortlived';
+            // acme.sh otherwise retains its default ~60-day renewal window,
+            // which is longer than Let's Encrypt short-lived certificates.
+            // acme.sh subtracts one day from this value, so 5 renews after 4 days.
+            $arguments .= ' --cert-profile shortlived --days 5';
         }
         return $arguments;
     }
