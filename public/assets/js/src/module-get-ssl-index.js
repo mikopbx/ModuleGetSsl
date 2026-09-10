@@ -345,13 +345,40 @@ const ModuleGetSsl = {
 			},
 			successTest: PbxApi.successTest,
 			onSuccess: function (response) {
-				ModuleGetSsl.$submitButton.removeClass('loading disabled');
+				// Keep button in loading state — it will be unlocked
+				// by the event timeout or final stage event.
+				ModuleGetSsl.scheduleButtonUnlock();
 			},
 			onFailure: function(response) {
 				ModuleGetSsl.$submitButton.removeClass('loading disabled');
 				UserMessage.showMultiString(response.message);
 			},
 		})
+	},
+
+	/**
+	 * Timer handle for the button unlock delay.
+	 * @type {number}
+	 */
+	buttonUnlockTimer: 0,
+
+	/**
+	 * Schedules button unlock after 30 seconds of inactivity.
+	 * Each call resets the timer so the button stays locked while events arrive.
+	 */
+	scheduleButtonUnlock() {
+		window.clearTimeout(ModuleGetSsl.buttonUnlockTimer);
+		ModuleGetSsl.buttonUnlockTimer = window.setTimeout(() => {
+			ModuleGetSsl.$submitButton.removeClass('loading disabled');
+		}, 30000);
+	},
+
+	/**
+	 * Immediately unlocks the submit button (called on final stage).
+	 */
+	unlockButton() {
+		window.clearTimeout(ModuleGetSsl.buttonUnlockTimer);
+		ModuleGetSsl.$submitButton.removeClass('loading disabled');
 	},
 
 	/**

@@ -250,14 +250,22 @@ NGINX;
      * Checks whether firewall rules need to be managed.
      *
      * Returns true only when PBX firewall is enabled AND system can manage iptables.
+     * Uses method_exists() for backward compatibility with PBX < 2024.2.30
+     * where System::canManageFirewall() does not exist.
      */
     private function isFirewallManaged(): bool
     {
-        $firewallEnabled = PbxSettings::getValueByKey(PbxSettings::PBX_FIREWALL_ENABLED);
+        // Use string key for backward compatibility with PBX < 2024.2.30
+        // where PbxSettings::PBX_FIREWALL_ENABLED constant does not exist.
+        $firewallEnabled = PbxSettings::getValueByKey('PBXFirewallEnabled');
         if ($firewallEnabled !== '1') {
             return false;
         }
-        return System::canManageFirewall();
+        if (method_exists(System::class, 'canManageFirewall')) {
+            return System::canManageFirewall();
+        }
+        // Older PBX without container detection: assume firewall can be managed
+        return true;
     }
 
     /**
