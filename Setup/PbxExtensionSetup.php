@@ -70,12 +70,16 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
             if ($settings === null) {
                 $settings = new ModuleGetSsl();
                 $settings->autoUpdate = '1';
+                $settings->includeIpAddress = '0';
                 $res = LanInterfaces::findFirst("internet = '1'")->toArray();
                 $settings->domainName = $res['exthostname'] ?? '';
             }
             // Migration: ensure challengeType has a default
             if (empty($settings->challengeType)) {
                 $settings->challengeType = 'http';
+            }
+            if ($settings->includeIpAddress === null || $settings->includeIpAddress === '') {
+                $settings->includeIpAddress = '0';
             }
             $result = $settings->save();
         }

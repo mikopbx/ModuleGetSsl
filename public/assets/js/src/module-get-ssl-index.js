@@ -1,4 +1,4 @@
-/* global globalRootUrl, globalTranslate, Form, Config, PbxApi, dnsProvidersMeta */
+/* global globalRootUrl, globalTranslate, Form, Config, PbxApi, dnsProvidersMeta, suggestedPublicIp */
 
 // Constants related to the form and module
 const idUrl     = 'module-get-ssl';              // API endpoint for SSL module
@@ -14,12 +14,21 @@ const ModuleGetSsl = {
 	$statusToggle: $('#module-status-toggle'),
 	$submitButton: $('#submitbutton'),
 	$moduleStatus: $('#status'),
+	$domainName: $('#domainName'),
+	$includeIpAddress: $('#includeIpAddress'),
+	$includeIpAddressField: $('#include-ip-address-field'),
+	$includeIpAddressCheckbox: $('#include-ip-address-checkbox'),
+	$publicIpAddress: $('#publicIpAddress'),
+	$publicIpAddressSettings: $('#public-ip-address-settings'),
+	$autoUpdate: $('#autoUpdate'),
+	$autoUpdateCheckbox: $('#auto-update-checkbox'),
 	$challengeType: $('#challengeType'),
 	$dnsProvider: $('#dnsProvider'),
 	$httpChallengeInfo: $('#http-challenge-info'),
 	$dnsSettingsBlock: $('#dns-settings-block'),
 	$dnsCredentialsFields: $('#dns-credentials-fields'),
 	$dnsCredentialsInput: $('input[name="dnsCredentials"]'),
+	$ipAddressWarning: $('#ip-address-certificate-warning'),
 
 	// Validation rules for the form
 	validateRules: {
@@ -56,6 +65,8 @@ const ModuleGetSsl = {
 
 		// Initialize form with validation and submit handlers
 		this.initializeForm();
+		this.bindIpAddressWarning();
+		this.bindCertificateIdentifierControls();
 
 		moduleGetSSLStatusLoopWorker.$resultBlock.hide();
 
@@ -63,6 +74,118 @@ const ModuleGetSsl = {
 		const currentChallenge = this.$challengeType.dropdown('get value') || 'http';
 		this.onChangeChallengeType(currentChallenge);
 		this.restoreSavedCredentials();
+	},
+
+	/**
+	 * Check whether a value is a valid IPv4 or IPv6 address.
+	 * @param {string} value
+	 * @returns {boolean}
+	 */
+	isIpAddress(value) {
+		const address = String(value || '').trim();
+		const ipv4Parts = address.split('.');
+		if (ipv4Parts.length === 4) {
+			return ipv4Parts.every(part => /^\d{1,3}$/.test(part)
+				&& Number(part) <= 255
+				&& (part === '0' || part[0] !== '0'));
+		}
+
+		const hasOpeningBracket = address.startsWith('[');
+		const hasClosingBracket = address.endsWith(']');
+		if (hasOpeningBracket !== hasClosingBracket) return false;
+		const ipv6 = hasOpeningBracket ? address.slice(1, -1) : address;
+		if (!ipv6.includes(':') || /\s/.test(ipv6)) return false;
+		try {
+			new URL(`http://[${ipv6}]/`);
+			return true;
+		} catch (e) {
+			return false;
+		}
+	},
+
+	/** Return true only for a publicly routable IPv4 or IPv6 address. */
+	isPublicIpAddress(value) {
+		if (!this.isIpAddress(value)) return false;
+		const address = String(value || '').trim().replace(/^\[|\]$/g, '').toLowerCase();
+		const ipv4Parts = address.split('.').map(Number);
+		if (ipv4Parts.length === 4) {
+			const [a, b, c] = ipv4Parts;
+			return !(a === 0 || a === 10 || a === 127 || a >= 224
+				|| (a === 100 && b >= 64 && b <= 127)
+				|| (a === 169 && b === 254)
+				|| (a === 172 && b >= 16 && b <= 31)
+				|| (a === 192 && b === 0 && (c === 0 || c === 2))
+				|| (a === 192 && b === 168)
+				|| (a === 198 && (b === 18 || b === 19))
+				|| (a === 198 && b === 51 && c === 100)
+				|| (a === 203 && b === 0 && c === 113));
+		}
+		return !(address === '::' || address === '::1'
+			|| address.startsWith('fc') || address.startsWith('fd')
+			|| /^fe[89ab]/.test(address) || address.startsWith('2001:db8:'));
+	},
+
+	/** Update warning visibility when the configured address changes. */
+	updateIpAddressWarning() {
+		if (this.isIpAddress(this.$domainName.val())) {
+			this.$ipAddressWarning.show();
+		} else {
+			this.$ipAddressWarning.hide();
+		}
+	},
+
+	/** Bind reactive IP warning behavior and initialize its state. */
+	bindIpAddressWarning() {
+		this.$domainName.on('input', () => this.updateIpAddressWarning());
+		this.updateIpAddressWarning();
+	},
+
+	/** Apply visibility and compatibility rules for domain/IP certificate identifiers. */
+	updateCertificateIdentifierControls() {
+		const primary = String(this.$domainName.val() || '').trim();
+		const primaryIsIp = this.isIpAddress(primary);
+		const canIncludeIp = primary !== '' && !primaryIsIp;
+		if (primaryIsIp && this.$includeIpAddress.is(':checked')) {
+			this.$includeIpAddress.prop('checked', false);
+			this.$includeIpAddressCheckbox.checkbox('uncheck');
+		}
+		const includeIp = canIncludeIp && this.$includeIpAddress.is(':checked');
+		if (includeIp && !String(this.$publicIpAddress.val() || '').trim()
+			&& typeof suggestedPublicIp === 'string' && this.isPublicIpAddress(suggestedPublicIp)) {
+			this.$publicIpAddress.val(suggestedPublicIp);
+		}
+
+		this.$includeIpAddressField.toggle(canIncludeIp);
+		this.$publicIpAddressSettings.toggle(includeIp);
+
+		if (primaryIsIp || includeIp) {
+			this.$challengeType.dropdown('set selected', 'http').dropdown('set disabled');
+			this.$autoUpdate.prop('checked', true).prop('disabled', true);
+			this.$autoUpdateCheckbox.checkbox('check').checkbox('set disabled');
+		} else {
+			this.$challengeType.dropdown('set enabled');
+			this.$autoUpdate.prop('disabled', false);
+			this.$autoUpdateCheckbox.checkbox('set enabled');
+		}
+	},
+
+	/** Bind changes affecting the requested certificate identifier list. */
+	bindCertificateIdentifierControls() {
+		this.$domainName.on('input', () => this.updateCertificateIdentifierControls());
+		this.$includeIpAddressCheckbox.checkbox({
+			onChange: () => this.updateCertificateIdentifierControls(),
+		});
+		this.updateCertificateIdentifierControls();
+	},
+
+	/** Validate the optional additional public IP address. */
+	validatePublicIpAddress() {
+		const primaryIsIp = this.isIpAddress(this.$domainName.val());
+		if (primaryIsIp || !this.$includeIpAddress.is(':checked')) return true;
+		if (this.isPublicIpAddress(this.$publicIpAddress.val())) return true;
+		UserMessage.showError(globalTranslate.module_getssl_PublicIpAddressInvalid);
+		this.$publicIpAddress.closest('.field').addClass('error');
+		return false;
 	},
 
 	/**
@@ -307,6 +430,9 @@ const ModuleGetSsl = {
 	 * @returns {Object} The modified Ajax request settings.
 	 */
 	cbBeforeSendForm(settings) {
+		if (!ModuleGetSsl.validatePublicIpAddress()) {
+			return false;
+		}
 		if (!ModuleGetSsl.validateDnsFields()) {
 			return false;
 		}

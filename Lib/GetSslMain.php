@@ -159,7 +159,18 @@ class GetSslMain extends Injectable
      */
     public function isDns01(): bool
     {
-        return ($this->module_settings['challengeType'] ?? 'http') === 'dns';
+        return ($this->module_settings['challengeType'] ?? 'http') === 'dns'
+            && !CertificateIdentifierPolicy::requiresHttp01($this->module_settings);
+    }
+
+    public function getCertificateIdentifiers(): array
+    {
+        return CertificateIdentifierPolicy::getIdentifiers($this->module_settings);
+    }
+
+    public function hasIpIdentifier(): bool
+    {
+        return CertificateIdentifierPolicy::containsIpAddress($this->module_settings);
     }
 
     /**
@@ -361,7 +372,8 @@ class GetSslMain extends Injectable
 
         // Build acme.sh command
         $cmd = self::ACME_SH_BIN
-            . " --issue -d " . escapeshellarg($extHostname)
+            . " --issue"
+            . CertificateIdentifierPolicy::buildAcmeIdentifierArguments($this->module_settings)
             . " --home " . escapeshellarg($acmeHome)
             . " --config-home " . escapeshellarg($acmeConfigHome)
             . " --server letsencrypt"
@@ -429,14 +441,15 @@ class GetSslMain extends Injectable
     }
 
     /**
-     * Runs the SSL certificate update process.
-     * Checks acme.sh paths first, then falls back to legacy getssl paths.
+     * Installs the acme.sh-issued certificate into PbxSettings.
+     * Called by reloadCmd.php (--reloadcmd hook) after a successful issue/renew.
      */
     public function run(): void
     {
         $certPath = $this->getCertPath();
         $privateKeyPath = $this->getPrivateKeyPath();
-        if (file_exists($privateKeyPath) && file_exists($certPath)) {
+        if ($certPath !== '' && $privateKeyPath !== ''
+            && file_exists($privateKeyPath) && file_exists($certPath)) {
             $this->updateKey('WEBHTTPSPublicKey', $certPath);
             $this->updateKey('WEBHTTPSPrivateKey', $privateKeyPath);
             $this->appendLog('SSL certificate installed into PbxSettings');
@@ -446,57 +459,65 @@ class GetSslMain extends Injectable
     }
 
     /**
-     * Returns the path to the SSL certificate.
-     * Checks acme.sh location first, then falls back to legacy getssl.
-     *
-     * @return string The certificate path.
+     * Returns true when acme.sh has a renewal config for the configured domain.
+     * Presence of the .conf file is required — acme.sh creates it only after a
+     * successful --issue, so it reliably distinguishes a leftover cert (from a
+     * legacy getssl migration) from a domain that acme.sh actually manages.
      */
-    private function getCertPath(): string
+    public function hasAcmeDomain(): bool
     {
-        $extHostname = $this->module_settings['domainName'];
+        $domain = $this->module_settings['domainName'] ?? '';
+        if ($domain === '') {
+            return false;
+        }
         $configHome = $this->dirs['acmeConfigHome'];
-
-        // acme.sh ECDSA path (default key type)
-        $acmeEccPath = $configHome . '/' . $extHostname . '_ecc/fullchain.cer';
-        if (file_exists($acmeEccPath)) {
-            return $acmeEccPath;
-        }
-
-        // acme.sh RSA path
-        $acmePath = $configHome . '/' . $extHostname . '/fullchain.cer';
-        if (file_exists($acmePath)) {
-            return $acmePath;
-        }
-
-        // Legacy getssl path
-        return $this->dirs['confDir'] . '/' . $extHostname . '/fullchain.crt';
+        return is_file("$configHome/{$domain}_ecc/{$domain}.conf")
+            || is_file("$configHome/{$domain}/{$domain}.conf");
     }
 
     /**
-     * Returns the path to the private SSL key.
-     * Checks acme.sh location first, then falls back to legacy getssl.
-     *
-     * @return string The private key path.
+     * Returns the path to the SSL certificate issued by acme.sh,
+     * or an empty string if no acme.sh-issued certificate is present.
+     */
+    private function getCertPath(): string
+    {
+        $domain = $this->module_settings['domainName'] ?? '';
+        if ($domain === '') {
+            return '';
+        }
+        $configHome = $this->dirs['acmeConfigHome'];
+        // ECDSA is the acme.sh default
+        $eccPath = "$configHome/{$domain}_ecc/fullchain.cer";
+        if (file_exists($eccPath)) {
+            return $eccPath;
+        }
+        $rsaPath = "$configHome/{$domain}/fullchain.cer";
+        if (file_exists($rsaPath)) {
+            return $rsaPath;
+        }
+        return '';
+    }
+
+    /**
+     * Returns the path to the acme.sh-issued private key,
+     * or an empty string if no acme.sh-issued key is present.
      */
     private function getPrivateKeyPath(): string
     {
-        $extHostname = $this->module_settings['domainName'];
+        $domain = $this->module_settings['domainName'] ?? '';
+        if ($domain === '') {
+            return '';
+        }
         $configHome = $this->dirs['acmeConfigHome'];
-
-        // acme.sh ECDSA path (default key type)
-        $acmeEccPath = $configHome . '/' . $extHostname . '_ecc/' . $extHostname . '.key';
-        if (file_exists($acmeEccPath)) {
-            return $acmeEccPath;
+        $eccPath = "$configHome/{$domain}_ecc/{$domain}.key";
+        if (file_exists($eccPath)) {
+            return $eccPath;
         }
-
-        // acme.sh RSA path
-        $acmePath = $configHome . '/' . $extHostname . '/' . $extHostname . '.key';
-        if (file_exists($acmePath)) {
-            return $acmePath;
+        $rsaPath = "$configHome/{$domain}/{$domain}.key";
+        if (file_exists($rsaPath)) {
+            return $rsaPath;
         }
-
-        // Legacy getssl path
-        return $this->dirs['confDir'] . '/' . $extHostname . '/' . $extHostname . '.key';
+        return '';
     }
 
     /**
@@ -515,7 +536,14 @@ class GetSslMain extends Injectable
             $dbRec = PbxSettings::findFirst($filter) ?? new PbxSettings();
             $dbRec->key = $name;
             $dbRec->value = $key;
-            $dbRec->save();
+            try {
+                $dbRec->save();
+            } catch (\Throwable $e) {
+                // afterSave triggers an event-bus publish that races nginx reload
+                // when called from acme.sh --reloadcmd. The DB write itself has
+                // already succeeded; swallow the noisy nchan failure.
+                $this->appendLog('updateKey ' . $name . ': ' . $e->getMessage());
+            }
         }
     }
 
@@ -537,12 +565,14 @@ class GetSslMain extends Injectable
     {
         if (
             PbxExtensionUtils::isEnabled($this->moduleUniqueID)
-            && intval($this->module_settings['autoUpdate']) === 1
             && !empty($this->module_settings['domainName'])
+            && (intval($this->module_settings['autoUpdate'] ?? 0) === 1
+                || CertificateIdentifierPolicy::requiresAutoUpdate($this->module_settings))
         ) {
             $phpPath = Util::which('php');
             $cronScript = $this->dirs['moduleDir'] . '/bin/cronRenewCert.php';
-            return "0 1 1,15 * * $phpPath -f $cronScript > /dev/null 2>&1" . PHP_EOL;
+            $schedule = CertificateIdentifierPolicy::getCronSchedule($this->module_settings);
+            return "$schedule $phpPath -f $cronScript > /dev/null 2>&1" . PHP_EOL;
         }
         return '';
     }

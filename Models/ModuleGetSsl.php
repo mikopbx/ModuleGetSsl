@@ -39,6 +39,20 @@ class ModuleGetSsl extends ModulesModelsBase
     public $domainName;
 
     /**
+     * Include an explicit public IP address in the certificate SAN list.
+     *
+     * @Column(type="integer", default="0", nullable=true)
+     */
+    public $includeIpAddress;
+
+    /**
+     * Public IPv4 or IPv6 address included in the certificate.
+     *
+     * @Column(type="string", nullable=true)
+     */
+    public $publicIpAddress;
+
+    /**
      * Auto update SSL certificate
      *
      * @Column(type="integer", default="1", nullable=true)
