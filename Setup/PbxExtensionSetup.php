@@ -71,8 +71,11 @@ class PbxExtensionSetup extends PbxExtensionSetupBase
                 $settings = new ModuleGetSsl();
                 $settings->autoUpdate = '1';
                 $settings->includeIpAddress = '0';
-                $res = LanInterfaces::findFirst("internet = '1'")->toArray();
-                $settings->domainName = $res['exthostname'] ?? '';
+                // In Docker/containerized deployments the LAN interfaces table may be empty
+                // or have no interface flagged as the internet-facing one (internet = '1'),
+                // so findFirst() can return null — guard against it.
+                $interface = LanInterfaces::findFirst("internet = '1'");
+                $settings->domainName = ($interface !== null) ? ($interface->exthostname ?? '') : '';
             }
             // Migration: ensure challengeType has a default
             if (empty($settings->challengeType)) {
